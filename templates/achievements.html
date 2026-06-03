@@ -1,0 +1,22 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Achievements{% endblock %}
+{% block page_subtitle %}Track your progress, milestones, and study wins.{% endblock %}
+
+{% block content %}
+<div class="card achievements-panel">
+    {% if achievements %}
+        <div class="achievement-grid">
+            {% for item in achievements %}
+                <article class="achievement-card">
+                    <h3>{{ item.name }}</h3>
+                    <p>{{ item.description }}</p>
+                    <span class="achievement-status">{{ item.status }}</span>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="empty-state">No achievements unlocked yet. Keep studying to earn badges.</p>
+    {% endif %}
+</div>
+{% endblock %}

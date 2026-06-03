@@ -1,0 +1,24 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}AI Assistant{% endblock %}
+{% block page_subtitle %}Ask for study plans, summaries, prompts, and focus support.{% endblock %}
+
+{% block content %}
+<div class="card assistant-panel">
+    <h2>Ask your study assistant</h2>
+    <form method="POST">
+        <div class="form-row">
+            <label for="query">What do you need help with?</label>
+            <textarea id="query" name="query" rows="4" required>{{ query or '' }}</textarea>
+        </div>
+        <button type="submit">Send</button>
+    </form>
+
+    {% if assistant_response %}
+        <div class="assistant-response card">
+            <h3>Response</h3>
+            <p>{{ assistant_response }}</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Tasks{% endblock %}
+{% block page_subtitle %}Plan your work and mark progress as complete.{% endblock %}
+
+{% block content %}
+
+<form class="panel card" method="POST">
+    <div class="form-row">
+        <label for="task">Task</label>
+        <input id="task" name="task" placeholder="Enter assignment, review, or deadline" required>
+    </div>
+    <div class="form-row">
+        <label for="due">Due date</label>
+        <input id="due" type="date" name="due" required>
+    </div>
+    <button type="submit">Add Task</button>
+</form>
+
+<div class="grid tasks-grid">
+    {% if tasks %}
+        {% for t in tasks %}
+            <article class="task-card {% if t.completed %}completed{% endif %}">
+                <div class="task-card-body">
+                    <strong>{{ t.task }}</strong>
+                    <span class="task-meta">Due {{ t.due_date }}</span>
+                </div>
+                <div class="task-card-actions">
+                    {% if not t.completed %}
+                        <a class="btn-link" href="{{ url_for('complete_task', task_id=t.id) }}">Mark complete</a>
+                    {% else %}
+                        <span class="status done">Completed</span>
+                    {% endif %}
+                </div>
+            </article>
+        {% endfor %}
+    {% else %}
+        <div class="card empty-state">No tasks yet. Add your first task above.</div>
+    {% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Study Timer{% endblock %}
+{% block page_subtitle %}Focus sessions, break reminders, and time tracking.{% endblock %}
+
+{% block content %}
+<div class="card timer-panel">
+    <h2>Pomodoro Focus</h2>
+    <p>Start a study session and stay on task with built-in breaks.</p>
+    <div class="timer-controls">
+        <button class="button primary" onclick="startTimer()">Start Session</button>
+        <button class="button secondary" onclick="pauseTimer()">Pause</button>
+        <button class="button secondary" onclick="resetTimer()">Reset</button>
+    </div>
+    <div class="timer-display" id="timer-display">25:00</div>
+</div>
+{% endblock %}

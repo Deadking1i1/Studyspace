@@ -1,0 +1,64 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Your daily study summary and community updates.{% endblock %}
+
+{% block content %}
+<div class="grid dashboard-grid">
+    <div class="stat-card">
+        <span>Study Streak</span>
+        <strong>{{ streak_days }} days</strong>
+    </div>
+    <div class="stat-card">
+        <span>Hours This Week</span>
+        <strong>{{ hours_this_week }}</strong>
+    </div>
+    <div class="stat-card">
+        <span>My Notes</span>
+        <strong>{{ notes_count }}</strong>
+    </div>
+</div>
+
+<div class="quick-actions card">
+    <h3>Quick Actions</h3>
+    <div class="action-grid">
+        <a href="/notes_hub" class="action-card">Create Note</a>
+        <a href="/flashcards" class="action-card">Create Flashcard</a>
+        <a href="/timer" class="action-card">Start Study Timer</a>
+        <a href="/groups" class="action-card">Join Study Group</a>
+    </div>
+</div>
+
+<div class="section-grid">
+    <section class="card activity-card">
+        <h3>Recent Activity</h3>
+        {% if recent_activity %}
+            <ul>
+                {% for item in recent_activity %}
+                    <li>{{ item.created_at }} — {{ item.content }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No activity yet. Start by creating a note or joining a group.</p>
+        {% endif %}
+    </section>
+
+    <section class="card community-card">
+        <h3>Community Highlights</h3>
+        <div class="community-list">
+            <div>
+                <h4>Most Helpful Notes</h4>
+                {% for note in community_notes %}
+                    <p>{{ note.title }}</p>
+                {% endfor %}
+            </div>
+            <div>
+                <h4>Top Groups</h4>
+                {% for group in top_groups %}
+                    <p>{{ group.name }}</p>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

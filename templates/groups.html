@@ -1,0 +1,55 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Groups{% endblock %}
+{% block page_subtitle %}Connect with classmates and collaborate on study goals.{% endblock %}
+
+{% block content %}
+<div class="card groups-panel">
+    <div class="groups-header">
+        <h2>Study Groups</h2>
+    </div>
+
+    <div class="group-create card">
+        <h3>Create a new group</h3>
+        <form method="POST">
+            <div class="form-row">
+                <label for="name">Group Name</label>
+                <input id="name" name="name" required>
+            </div>
+            <div class="form-row">
+                <label for="description">Description</label>
+                <textarea id="description" name="description" rows="3" required></textarea>
+            </div>
+            <button type="submit">Create Group</button>
+        </form>
+    </div>
+
+    {% if groups %}
+        <div class="group-list">
+            {% for group in groups %}
+                <article class="group-card">
+                    <h3>{{ group.name }}</h3>
+                    <p>{{ group.description }}</p>
+                    <div class="group-meta">Members: {{ group.member_count }}</div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="empty-state">No study groups found. Create one to invite classmates.</p>
+    {% endif %}
+
+    {% if recommended %}
+    <div class="recommended-groups card">
+        <h3>Recommended Groups</h3>
+        <div class="group-list">
+            {% for group in recommended %}
+                <article class="group-card secondary">
+                    <h3>{{ group.name }}</h3>
+                    <p>{{ group.description }}</p>
+                </article>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

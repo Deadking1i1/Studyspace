@@ -1,0 +1,63 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Overview of notes and tasks for today.{% endblock %}
+
+{% block content %}
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <span>Notes</span>
+        <strong>{{ notes_count }}</strong>
+    </div>
+    <div class="stat-card">
+        <span>Tasks</span>
+        <strong>{{ tasks_count }}</strong>
+    </div>
+    <div class="stat-card">
+        <span>Completed</span>
+        <strong>{{ completed_count }}</strong>
+    </div>
+</div>
+
+<div class="grid two-column">
+    <section class="card dashboard-card">
+        <div class="card-header">
+            <h3>Recent Notes</h3>
+            <a class="btn-link" href="/notes">View all</a>
+        </div>
+        {% if recent_notes %}
+            <div class="item-list">
+                {% for note in recent_notes %}
+                    <article class="list-item">
+                        <h4>{{ note.title }}</h4>
+                        <p>{{ note.content[:120] }}{% if note.content|length > 120 %}...{% endif %}</p>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">No notes yet. Create one on the Notes page.</div>
+        {% endif %}
+    </section>
+
+    <section class="card dashboard-card">
+        <div class="card-header">
+            <h3>Upcoming Tasks</h3>
+            <a class="btn-link" href="/tasks">Manage</a>
+        </div>
+        {% if upcoming_tasks %}
+            <div class="item-list">
+                {% for task in upcoming_tasks %}
+                    <article class="list-item">
+                        <div>{{ task.task }}</div>
+                        <span class="meta">Due {{ task.due_date }}</span>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">No upcoming tasks. Add one to stay on track.</div>
+        {% endif %}
+    </section>
+</div>
+
+{% endblock %} 

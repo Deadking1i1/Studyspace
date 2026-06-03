@@ -1,0 +1,22 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Notifications{% endblock %}
+{% block page_subtitle %}Stay updated with reminders, invites, and community alerts.{% endblock %}
+
+{% block content %}
+<div class="card notifications-panel">
+    {% if notifications %}
+        <ul class="notification-list">
+            {% for notification in notifications %}
+                <li>
+                    <strong>{{ notification.title }}</strong>
+                    <p>{{ notification.message }}</p>
+                    <span class="notification-time">{{ notification.created_at }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="empty-state">No new notifications. You'll see reminders here.</p>
+    {% endif %}
+</div>
+{% endblock %}

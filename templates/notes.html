@@ -1,0 +1,43 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Notes{% endblock %}
+{% block page_subtitle %}Capture ideas and generate quick summaries.{% endblock %}
+
+{% block content %}
+
+<form class="panel card" method="POST">
+    <div class="form-row">
+        <label for="title">Title</label>
+        <input id="title" name="title" placeholder="Note title" required>
+    </div>
+    <div class="form-row">
+        <label for="content">Content</label>
+        <textarea id="content" name="content" rows="7" placeholder="Write your thoughts..." required></textarea>
+    </div>
+    <button type="submit">Save Note</button>
+</form>
+
+{% if summary %}
+    <div class="card summary-card">
+        <h3>Summary</h3>
+        <p>{{ summary }}</p>
+    </div>
+{% endif %}
+
+<div class="grid notes-grid">
+    {% if notes %}
+        {% for note in notes %}
+            <article class="note-card">
+                <div>
+                    <h3>{{ note.title }}</h3>
+                    <p>{{ note.content[:180] }}{% if note.content|length > 180 %}...{% endif %}</p>
+                </div>
+                <a class="btn-link" href="{{ url_for('summarize_note', note_id=note.id) }}">Summarize</a>
+            </article>
+        {% endfor %}
+    {% else %}
+        <div class="card empty-state">You don't have any notes yet. Add one above.</div>
+    {% endif %}
+</div>
+
+{% endblock %} 

@@ -1,0 +1,26 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Register{% endblock %}
+{% block page_subtitle %}Create your Study Space account and start building your study flow.{% endblock %}
+
+{% block content %}
+<div class="auth-panel card">
+    <h2>Create account</h2>
+    <form method="POST">
+        <div class="form-row">
+            <label for="username">Username</label>
+            <input id="username" name="username" required>
+        </div>
+        <div class="form-row">
+            <label for="email">Email</label>
+            <input id="email" type="email" name="email" required>
+        </div>
+        <div class="form-row">
+            <label for="password">Password</label>
+            <input id="password" type="password" name="password" required>
+        </div>
+        <button type="submit">Register</button>
+    </form>
+    <p class="auth-footer">Already have an account? <a href="/login">Login instead</a>.</p>
+</div>
+{% endblock %}

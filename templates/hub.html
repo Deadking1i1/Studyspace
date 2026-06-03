@@ -1,0 +1,155 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Study Hub{% endblock %}
+{% block page_subtitle %}Everything you need for study work in one place.{% endblock %}
+
+{% block content %}
+
+<div class="hub-grid">
+    <section class="module-card">
+        <div class="module-header">
+            <h3>Instant Notes</h3>
+            <span class="module-summary">Save ideas fast</span>
+        </div>
+        <form method="POST" class="mini-form">
+            <input type="hidden" name="form_type" value="add_note">
+            <div class="form-row">
+                <label for="hub-note-title">Title</label>
+                <input id="hub-note-title" name="title" placeholder="Note title" required>
+            </div>
+            <div class="form-row">
+                <label for="hub-note-content">Note</label>
+                <textarea id="hub-note-content" name="content" rows="4" placeholder="Write a quick note here..." required></textarea>
+            </div>
+            <button type="submit">Save Note</button>
+        </form>
+        <div class="item-list">
+            {% if notes %}
+                {% for note in notes %}
+                    <article class="list-item">
+                        <h4>{{ note.title }}</h4>
+                        <p>{{ note.content[:120] }}{% if note.content|length > 120 %}...{% endif %}</p>
+                    </article>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">No recent notes. Capture one now.</div>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="module-card">
+        <div class="module-header">
+            <h3>Event Calendar</h3>
+            <span class="module-summary">Track deadlines, classes, and study sessions</span>
+        </div>
+        <form method="POST" class="mini-form">
+            <input type="hidden" name="form_type" value="add_event">
+            <div class="form-row">
+                <label for="event_name">Event</label>
+                <input id="event_name" name="event_name" placeholder="Project meeting, exam, review" required>
+            </div>
+            <div class="form-row">
+                <label for="event_date">Date</label>
+                <input id="event_date" type="date" name="event_date" required>
+            </div>
+            <div class="form-row">
+                <label for="event_notes">Notes</label>
+                <textarea id="event_notes" name="event_notes" rows="3" placeholder="Optional notes"></textarea>
+            </div>
+            <button type="submit">Add Event</button>
+        </form>
+        <div class="event-list">
+            {% if events %}
+                {% for event in events %}
+                    <div>
+                        <strong>{{ event.name }}</strong>
+                        <span class="meta">{{ event.event_date }}</span>
+                        {% if event.notes %}
+                            <p>{{ event.notes[:100] }}{% if event.notes|length > 100 %}...{% endif %}</p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">No events yet. Add your next deadline above.</div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+
+<div class="workspace-row">
+    <section class="module-card editor-card">
+        <div class="module-header">
+            <div>
+                <h3>Study Document</h3>
+                <p class="module-summary">Write with a simple word-like editor.</p>
+            </div>
+            <span class="badge">Draft mode</span>
+        </div>
+        <form id="editor-form" method="POST">
+            <input type="hidden" name="form_type" value="save_editor">
+            <div class="form-row">
+                <label for="editor-title">Document title</label>
+                <input id="editor-title" name="editor_title" placeholder="Research summary, assignment outline">
+            </div>
+            <div class="editor-toolbar">
+                <button type="button" data-command="bold">Bold</button>
+                <button type="button" data-command="italic">Italic</button>
+                <button type="button" data-command="underline">Underline</button>
+                <button type="button" data-command="insertUnorderedList">Bullet list</button>
+                <button type="button" data-command="insertOrderedList">Numbered list</button>
+            </div>
+            <div id="editor" class="editor-pane" contenteditable="true">
+                Start writing your study notes here. Use the toolbar to format text, then save to store it in notes.
+            </div>
+            <textarea id="editor-content" name="editor_content" hidden></textarea>
+            <button type="submit">Save Document</button>
+        </form>
+    </section>
+
+    <section class="module-card spotify-card">
+        <div class="module-header">
+            <h3>Spotify Quick Access</h3>
+            <span class="module-summary">Keep focus music close.</span>
+        </div>
+        <div>
+            {% if spotify_connected and current_track %}
+                <div class="spotify-status">Connected to Spotify · Now playing: <strong>{{ current_track }}</strong></div>
+            {% else %}
+                <div class="spotify-status">Spotify not connected yet.</div>
+            {% endif %}
+        </div>
+        <form method="POST" class="mini-form">
+            <input type="hidden" name="form_type" value="connect_spotify">
+            <div class="form-row">
+                <label for="spotify_track">Focus track or playlist</label>
+                <input id="spotify_track" name="spotify_track" placeholder="e.g. lo-fi study beats" required>
+            </div>
+            <button type="submit">Connect Track</button>
+        </form>
+        <p class="status-note">This section gives you a central spot to manage focus music without leaving the app.</p>
+    </section>
+</div>
+
+<div class="workspace-row">
+    <section class="module-card pdf-viewer">
+        <div class="module-header">
+            <h3>PDF Study Viewer</h3>
+            <span class="module-summary">Open a reference file alongside notes.</span>
+        </div>
+        <form method="POST" class="mini-form">
+            <input type="hidden" name="form_type" value="load_pdf">
+            <div class="form-row">
+                <label for="pdf_url">PDF URL</label>
+                <input id="pdf_url" name="pdf_url" placeholder="Paste a PDF link to open it here">
+            </div>
+            <button type="submit">Load PDF</button>
+        </form>
+        {% if pdf_url %}
+            <iframe src="{{ pdf_url }}" title="PDF viewer"></iframe>
+        {% else %}
+            <div class="empty-state">Load a PDF file from a URL to preview it side-by-side with your notes.</div>
+        {% endif %}
+    </section>
+</div>
+
+{% endblock %}

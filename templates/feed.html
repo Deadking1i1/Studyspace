@@ -1,0 +1,20 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Community Feed{% endblock %}
+{% block page_subtitle %}See updates, posts, and study tips from your peers.{% endblock %}
+
+{% block content %}
+<div class="card feed-panel">
+    {% if posts %}
+        {% for post in posts %}
+            <article class="post-card">
+                <h3>{{ post.title or 'Study Update' }}</h3>
+                <p>{{ post.content }}</p>
+                <div class="post-meta">By {{ post.username }} · {{ post.created_at }}</div>
+            </article>
+        {% endfor %}
+    {% else %}
+        <p class="empty-state">No posts yet. Check back later or share a study tip.</p>
+    {% endif %}
+</div>
+{% endblock %}
