@@ -1,13 +1,15 @@
+import os
 import re
 from datetime import datetime, date
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
-from models.database import init_db, get_db_connection
+from models.database import DB_PATH, init_db, get_db_connection
 
 app = Flask(__name__)
-app.secret_key = "study-space-secret-key"
+app.secret_key = os.getenv("SECRET_KEY", "study-space-secret-key")
 init_db()
+app.logger.info(f"SQLite database initialized at {DB_PATH}")
 
 
 def login_required(view):
@@ -335,4 +337,7 @@ def achievements():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", 5000))
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
+    app.run(host=host, port=port, debug=debug)

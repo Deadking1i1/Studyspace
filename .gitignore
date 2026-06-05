@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+
+# SQLite database
+database.db
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Flask debug files
+instance/
+.webassets-cache
+
+# IDE files
+.vscode/

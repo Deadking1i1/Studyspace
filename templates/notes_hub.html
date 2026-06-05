@@ -9,41 +9,45 @@
         <h2>My Notes</h2>
     </div>
 
-    <div class="note-create card">
-        <h3>Create a new note</h3>
-        <form method="POST">
-            <div class="form-row">
-                <label for="title">Title</label>
-                <input id="title" name="title" required>
-            </div>
-            <div class="form-row">
-                <label for="content">Content</label>
-                <textarea id="content" name="content" rows="5" required></textarea>
-            </div>
-            <div class="form-row inline">
-                <label for="visibility">Visibility</label>
-                <select id="visibility" name="visibility">
-                    <option value="private">Private</option>
-                    <option value="public">Public</option>
-                </select>
-            </div>
-            <button type="submit">Save Note</button>
-        </form>
-    </div>
-
-    {% if notes %}
-        <div class="notes-list">
-            {% for note in notes %}
-                <article class="note-card">
-                    <h3>{{ note.title }}</h3>
-                    <p>{{ note.content[:150] }}{% if note.content|length > 150 %}…{% endif %}</p>
-                    <div class="note-meta">Updated {{ note.created_at }}</div>
-                </article>
-            {% endfor %}
+    <div class="notes-hub-grid">
+        <div class="note-create card">
+            <h3>Create a new note</h3>
+            <form method="POST">
+                <div class="form-row">
+                    <label for="title">Title</label>
+                    <input id="title" name="title" required>
+                </div>
+                <div class="form-row">
+                    <label for="content">Content</label>
+                    <textarea id="content" name="content" rows="5" required></textarea>
+                </div>
+                <div class="form-row inline">
+                    <label for="visibility">Visibility</label>
+                    <select id="visibility" name="visibility">
+                        <option value="private">Private</option>
+                        <option value="public">Public</option>
+                    </select>
+                </div>
+                <button type="submit">Save Note</button>
+            </form>
         </div>
-    {% else %}
-        <p class="empty-state">You don't have any notes yet.</p>
-    {% endif %}
+
+        <div class="notes-list">
+            {% if notes %}
+                <div class="notes-grid">
+                    {% for note in notes %}
+                        <article class="note-card">
+                            <h3>{{ note.title }}</h3>
+                            <p>{{ note.content[:150] }}{% if note.content|length > 150 %}…{% endif %}</p>
+                            <div class="note-meta">Updated {{ note.created_at }}</div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="empty-state">You don't have any notes yet.</p>
+            {% endif %}
+        </div>
+    </div>
 </div>
 
 {% if community_notes %}

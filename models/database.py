@@ -1,12 +1,30 @@
+import os
 import sqlite3
+from pathlib import Path
 
-DB_PATH = 'database.db'
+BASE_DIR = Path(__file__).resolve().parent.parent
+DB_PATH = BASE_DIR / 'database.db'
 
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
+    # Increase timeout and allow cross-thread usage to reduce "database is locked" errors
+    conn = sqlite3.connect(str(DB_PATH), timeout=30, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    # Enforce foreign keys and use WAL for better concurrency and resilience (helps with OneDrive locking)
+    try:
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA journal_mode = WAL")
+    except Exception:
+        # Best-effort: if PRAGMA fails, continue with the connection
+        pass
     return conn
+
+
+def add_missing_columns(conn, table, columns):
+    existing = [row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+    for name, definition in columns.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
 
 
 def init_db():
@@ -162,6 +180,15 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
+
+    add_missing_columns(conn, 'notes', {
+        'user_id': 'INTEGER',
+        'is_public': 'INTEGER DEFAULT 0',
+        'likes': 'INTEGER DEFAULT 0'
+    })
+    add_missing_columns(conn, 'events', {
+        'user_id': 'INTEGER'
+    })
 
     conn.commit()
     conn.close()

@@ -9,68 +9,69 @@
 
 <body>
 <div id="particles"></div>
-<div class="app">
-    <aside class="sidebar">
-        <div class="brand-panel">
+<header>
+    <nav class="navbar">
+        <div class="navbar-left">
             <div class="brand-mark">SS</div>
             <div>
-                <h1>Study Space</h1>
-                <p>Your all-in-one study hub</p>
+                <span class="navbar-title">Study Space</span>
+                <p class="navbar-tagline">Your all-in-one study hub</p>
             </div>
         </div>
-
-        <nav class="sidebar-nav">
-            <a href="/dashboard" class="{% if request.path == '/dashboard' %}active{% endif %}">Dashboard</a>
-            <a href="/notes_hub" class="{% if request.path == '/notes_hub' %}active{% endif %}">Notes Hub</a>
-            <a href="/flashcards" class="{% if request.path == '/flashcards' %}active{% endif %}">Flashcards</a>
-            <a href="/timer" class="{% if request.path == '/timer' %}active{% endif %}">Study Timer</a>
-            <a href="/groups" class="{% if request.path == '/groups' %}active{% endif %}">Groups</a>
-            <a href="/feed" class="{% if request.path == '/feed' %}active{% endif %}">Community Feed</a>
-            <a href="/assistant" class="{% if request.path == '/assistant' %}active{% endif %}">AI Assistant</a>
-            <a href="/achievements" class="{% if request.path == '/achievements' %}active{% endif %}">Achievements</a>
-        </nav>
-    </aside>
-
-    <main class="main">
-        <header class="topbar">
-            <div>
-                <p class="eyebrow">Study Space 2.0</p>
-                <h1>{% block page_title %}Dashboard{% endblock %}</h1>
-                <p class="page-subtitle">{% block page_subtitle %}Your study hub for notes, tasks, groups, and focus.{% endblock %}</p>
-            </div>
-            <div class="topbar-actions">
-                <div class="topbar-item">
-                    <span class="badge">{{ today if today else '' }}</span>
-                </div>
-                {% if current_user %}
-                <div class="topbar-item user-chip">
+        <ul class="navbar-links">
+            <li><a href="/dashboard" class="{% if request.path == '/dashboard' %}active{% endif %}">Dashboard</a></li>
+            <li><a href="/notes_hub" class="{% if request.path == '/notes_hub' %}active{% endif %}">Notes Hub</a></li>
+            <li><a href="/flashcards" class="{% if request.path == '/flashcards' %}active{% endif %}">Flashcards</a></li>
+            <li><a href="/timer" class="{% if request.path == '/timer' %}active{% endif %}">Timer</a></li>
+            <li><a href="/groups" class="{% if request.path == '/groups' %}active{% endif %}">Groups</a></li>
+            <li><a href="/feed" class="{% if request.path == '/feed' %}active{% endif %}">Feed</a></li>
+            <li><a href="/assistant" class="{% if request.path == '/assistant' %}active{% endif %}">Assistant</a></li>
+            <li><a href="/achievements" class="{% if request.path == '/achievements' %}active{% endif %}">Achievements</a></li>
+        </ul>
+        <div class="navbar-actions">
+            <span class="badge">{{ today if today else '' }}</span>
+            {% if current_user %}
+                <div class="navbar-profile">
                     <span>{{ current_user.username }}</span>
                     <a href="/profile">Profile</a>
                     <a href="/logout" class="logout-link">Logout</a>
                 </div>
-                {% else %}
-                <div class="topbar-item user-chip">
+            {% else %}
+                <div class="navbar-profile">
                     <a href="/login">Login</a>
                     <a href="/register">Register</a>
                 </div>
-                {% endif %}
-            </div>
-        </header>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="flash-panel">
-                    {% for category, message in messages %}
-                        <div class="flash {{ category }}">{{ message }}</div>
-                    {% endfor %}
-                </div>
             {% endif %}
-        {% endwith %}
+        </div>
+    </nav>
+</header>
 
-        <section class="page-body">
-            {% block content %}{% endblock %}
-        </section>
-    </main>
+<main class="main">
+    <header class="topbar">
+        <div>
+            <p class="eyebrow">Study Space 2.0</p>
+            <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+            <p class="page-subtitle">{% block page_subtitle %}Your study hub for notes, tasks, groups, and focus.{% endblock %}</p>
+        </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-panel">
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <section class="page-body">
+        {% block content %}{% endblock %}
+    </section>
+</main>
+
+<div class="page-logo-holder">
+    <div class="page-logo">SS</div>
 </div>
 
 <script src="{{ url_for('static', filename='JS/main.js') }}"></script>
