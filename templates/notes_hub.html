@@ -1,4 +1,4 @@
-{% extends 'layout.html' %}
+﻿{% extends 'layout.html' %}
 
 {% block page_title %}Notes Hub{% endblock %}
 {% block page_subtitle %}Write, save, and organize your study notes in one place.{% endblock %}
@@ -13,6 +13,7 @@
         <div class="note-create card">
             <h3>Create a new note</h3>
             <form method="POST">
+                {{ csrf_token() }}
                 <div class="form-row">
                     <label for="title">Title</label>
                     <input id="title" name="title" required>
@@ -38,7 +39,7 @@
                     {% for note in notes %}
                         <article class="note-card">
                             <h3>{{ note.title }}</h3>
-                            <p>{{ note.content[:150] }}{% if note.content|length > 150 %}…{% endif %}</p>
+                            <p>{{ note.content[:150] }}{% if note.content|length > 150 %}â€¦{% endif %}</p>
                             <div class="note-meta">Updated {{ note.created_at }}</div>
                         </article>
                     {% endfor %}
@@ -54,10 +55,11 @@
 <div class="card community-notes-panel">
     <h3>Popular public notes</h3>
     <ul>
-        {% for note in community_notes %}
-            <li>{{ note.title }}</li>
-        {% endfor %}
+        <template>{% for note in community_notes %}</template>
+        <li>{{ note.title }}</li>
+        <template>{% endfor %}</template>
     </ul>
 </div>
 {% endif %}
 {% endblock %}
+

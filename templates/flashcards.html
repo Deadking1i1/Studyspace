@@ -1,4 +1,4 @@
-{% extends 'layout.html' %}
+﻿{% extends 'layout.html' %}
 
 {% block page_title %}Flashcards{% endblock %}
 {% block page_subtitle %}Review and memorize key concepts with flashcards.{% endblock %}
@@ -12,6 +12,7 @@
     <div class="flashcard-create card">
         <h3>Create a new flashcard</h3>
         <form method="POST">
+            {{ csrf_token() }}
             <div class="form-row">
                 <label for="title">Set title</label>
                 <input id="title" name="title" required>
@@ -50,3 +51,4 @@
     {% endif %}
 </div>
 {% endblock %}
+

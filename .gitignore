@@ -9,15 +9,32 @@ venv/
 ENV/
 
 # SQLite database
+*.db
 database.db
 
 # OS files
 .DS_Store
 Thumbs.db
 
+# Environment files
+.env
+.env.*
+
+# Uploads and generated files
+static/uploads/
+*.sqlite3
+*.sqlite
+*.db-journal
+
 # Flask debug files
 instance/
 .webassets-cache
+
+# Python test / cache files
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
 
 # IDE files
 .vscode/

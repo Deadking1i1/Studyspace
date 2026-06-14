@@ -1,4 +1,4 @@
-{% extends 'layout.html' %}
+﻿{% extends 'layout.html' %}
 
 {% block page_title %}Register{% endblock %}
 {% block page_subtitle %}Create your Study Space account and start building your study flow.{% endblock %}
@@ -7,6 +7,7 @@
 <div class="auth-panel card">
     <h2>Create account</h2>
     <form method="POST">
+            {{ csrf_token() }}
         <div class="form-row">
             <label for="username">Username</label>
             <input id="username" name="username" required>
@@ -24,3 +25,4 @@
     <p class="auth-footer">Already have an account? <a href="/login">Login instead</a>.</p>
 </div>
 {% endblock %}
+

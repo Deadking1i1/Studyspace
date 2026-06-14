@@ -1,4 +1,4 @@
-{% extends 'layout.html' %}
+﻿{% extends 'layout.html' %}
 
 {% block page_title %}Login{% endblock %}
 {% block page_subtitle %}Access your study hub and continue where you left off.{% endblock %}
@@ -7,6 +7,7 @@
 <div class="auth-panel card">
     <h2>Sign in</h2>
     <form method="POST">
+            {{ csrf_token() }}
         <div class="form-row">
             <label for="email">Email</label>
             <input id="email" type="email" name="email" required>
@@ -20,3 +21,4 @@
     <p class="auth-footer">Don't have an account? <a href="/register">Register here</a>.</p>
 </div>
 {% endblock %}
+

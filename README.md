@@ -41,9 +41,25 @@ waitress-serve --listen=0.0.0.0:$PORT wsgi:app
 ```
 
 - Use environment variables:
-  - `SECRET_KEY` for Flask secret key
+  - `SECRET_KEY` for Flask secret key (required)
+  - `DATABASE_URL` for a custom database file path (optional)
+  - `SESSION_COOKIE_SECURE=1` when running behind HTTPS in production
   - `PORT` for the listen port
   - `FLASK_DEBUG=0` for production
+  - `FLASK_ENV=development` for local development if you want relaxed session cookie handling
+
+> For local development, create a `.env` file from `.env.example` or export `SECRET_KEY` before starting the app.
+
+### Local environment example
+
+Create a `.env` file in the project root:
+
+```env
+SECRET_KEY=replace-with-a-secure-random-string
+DATABASE_URL=database.db
+FLASK_DEBUG=1
+FLASK_ENV=development
+```
 
 ### Notes
 

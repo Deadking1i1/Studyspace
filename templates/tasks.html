@@ -6,6 +6,7 @@
 {% block content %}
 
 <form class="panel card" method="POST">
+    {{ csrf_token() }}
     <div class="form-row">
         <label for="task">Task</label>
         <input id="task" name="task" placeholder="Enter assignment, review, or deadline" required>

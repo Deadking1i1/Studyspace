@@ -32,6 +32,12 @@
             <span class="badge">{{ today if today else '' }}</span>
             {% if current_user %}
                 <div class="navbar-profile">
+                    <a href="/notifications" class="notif-link">Notifications
+                        {% set unread = current_user.notifications | selectattr('is_read', 'equalto', False) | list | length %}
+                        {% if unread > 0 %}
+                            <span class="notif-count">{{ unread }}</span>
+                        {% endif %}
+                    </a>
                     <span>{{ current_user.username }}</span>
                     <a href="/profile">Profile</a>
                     <a href="/logout" class="logout-link">Logout</a>

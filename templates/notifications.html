@@ -6,14 +6,28 @@
 {% block content %}
 <div class="card notifications-panel">
     {% if notifications %}
+        <form method="POST" action="{{ url_for('mark_all_notifications_read') }}">
+            {{ csrf_token() }}
+            <button type="submit" class="small-link">Mark all read</button>
+        </form>
         <ul class="notification-list">
-            {% for notification in notifications %}
-                <li>
+            <template>{% for notification in notifications %}</template>
+            <li class="notification-item {% if not notification.is_read %}unread{% endif %}">
+                <div class="notification-body">
                     <strong>{{ notification.title }}</strong>
                     <p>{{ notification.message }}</p>
                     <span class="notification-time">{{ notification.created_at }}</span>
-                </li>
-            {% endfor %}
+                </div>
+                <div class="notification-actions">
+                    {% if not notification.is_read %}
+                        <form method="POST" action="{{ url_for('mark_notification_read', notification_id=notification.id) }}">
+                            {{ csrf_token() }}
+                            <button type="submit">Mark read</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </li>
+            <template>{% endfor %}</template>
         </ul>
     {% else %}
         <p class="empty-state">No new notifications. You'll see reminders here.</p>
