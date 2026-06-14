@@ -3,13 +3,43 @@ import re
 from datetime import datetime, date
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_talisman import Talisman
 from werkzeug.security import generate_password_hash, check_password_hash
-from models.database import DB_PATH, init_db, get_db_connection
+from bleach import clean as bleach_clean
+from sqlalchemy import or_, func
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
+from werkzeug.utils import secure_filename
+from models import db, migrate, User, Note, Flashcard, FlashcardCard, StudySession, Group, GroupMember, Post, Achievement, Notification, Event, Task
+from config import Config
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "study-space-secret-key")
-init_db()
-app.logger.info(f"SQLite database initialized at {DB_PATH}")
+app.config.from_object(Config)
+
+db.init_app(app)
+migrate.init_app(app, db)
+CSRFProtect(app)
+Talisman(
+    app,
+    content_security_policy={
+        'default-src': "'self'",
+        'script-src': "'self' 'unsafe-inline'",
+        'style-src': "'self' 'unsafe-inline'",
+        'img-src': "'self' data:",
+        'connect-src': "'self'",
+    },
+    force_https=False,
+    strict_transport_security=False,
+)
+limiter = Limiter(key_func=get_remote_address, default_limits=["200 per day", "50 per hour"])
+limiter.init_app(app)
+
+with app.app_context():
+    db.create_all()
+    app.logger.info(f"Database initialized at {app.config['SQLALCHEMY_DATABASE_URI']}")
 
 
 def login_required(view):
@@ -25,10 +55,14 @@ def login_required(view):
 def inject_user():
     user = None
     if session.get("user_id"):
-        conn = get_db_connection()
-        user = conn.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
-        conn.close()
+        user = User.query.get(session["user_id"])
     return {"current_user": user}
+
+
+def allowed_file(filename):
+    if not filename:
+        return False
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config.get('ALLOWED_IMAGE_EXTENSIONS', set())
 
 
 def summarize_text(text):
@@ -53,6 +87,7 @@ def root():
 
 
 @app.route("/register", methods=["GET", "POST"])
+@limiter.limit("3 per minute")
 def register():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
@@ -66,27 +101,23 @@ def register():
         password_hash = generate_password_hash(password)
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        conn = get_db_connection()
+        user = User(username=username, email=email, password_hash=password_hash, created_at=created_at)
+        db.session.add(user)
         try:
-            conn.execute(
-                "INSERT INTO users (username, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
-                (username, email, password_hash, created_at)
-            )
-            conn.commit()
-            user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-            session["user_id"] = user["id"]
+            db.session.commit()
+            session["user_id"] = user.id
             flash("Registration successful. Welcome to Study Space!", "success")
             return redirect(url_for("dashboard"))
-        except Exception:
+        except IntegrityError:
+            db.session.rollback()
             flash("A user with that email or username already exists.", "error")
             return redirect(url_for("register"))
-        finally:
-            conn.close()
 
     return render_template("register.html")
 
 
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
 def login():
     if request.method == "POST":
         email = request.form.get("email", "").strip()
@@ -96,12 +127,10 @@ def login():
             flash("Please enter both email and password.", "error")
             return redirect(url_for("login"))
 
-        conn = get_db_connection()
-        user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-        conn.close()
+        user = User.query.filter_by(email=email).first()
 
-        if user and check_password_hash(user["password_hash"], password):
-            session["user_id"] = user["id"]
+        if user and check_password_hash(user.password_hash, password):
+            session["user_id"] = user.id
             flash("Logged in successfully.", "success")
             return redirect(url_for("dashboard"))
 
@@ -121,19 +150,14 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    conn = get_db_connection()
-    user = conn.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
-    notes_count = conn.execute("SELECT COUNT(*) AS count FROM notes WHERE user_id = ?", (user["id"],)).fetchone()["count"]
-    sessions_hours = conn.execute("SELECT COALESCE(SUM(duration_minutes), 0) AS total FROM study_sessions WHERE user_id = ?", (user["id"],)).fetchone()["total"]
-    sessions_hours = round(sessions_hours / 60, 1)
-    recent_activity = conn.execute(
-        "SELECT content, created_at FROM posts WHERE user_id = ? ORDER BY created_at DESC LIMIT 4",
-        (user["id"],)
-    ).fetchall()
-    community_notes = conn.execute("SELECT title FROM notes WHERE is_public = 1 ORDER BY likes DESC LIMIT 3").fetchall()
-    top_groups = conn.execute("SELECT name FROM groups ORDER BY member_count DESC LIMIT 3").fetchall()
-    streak_days = user["streak_days"] or 0
-    conn.close()
+    user = User.query.get(session["user_id"])
+    notes_count = Note.query.filter_by(user_id=user.id).count()
+    sessions_minutes = db.session.query(func.coalesce(func.sum(StudySession.duration_minutes), 0)).filter_by(user_id=user.id).scalar() or 0
+    sessions_hours = round(sessions_minutes / 60, 1)
+    recent_activity = Post.query.filter_by(user_id=user.id).order_by(Post.created_at.desc()).limit(4).all()
+    community_notes = Note.query.filter_by(is_public=True).order_by(Note.likes.desc()).limit(3).all()
+    top_groups = Group.query.order_by(Group.member_count.desc()).limit(3).all()
+    streak_days = user.streak_days or 0
 
     return render_template(
         "dashboard.html",
@@ -151,38 +175,35 @@ def dashboard():
 @login_required
 def notes_hub():
     query = request.args.get("q", "").strip()
-    conn = get_db_connection()
     if request.method == "POST":
         title = request.form.get("title", "").strip()
         content = request.form.get("content", "").strip()
         visibility = request.form.get("visibility")
-        is_public = 1 if visibility == "public" else 0
+        is_public = visibility == "public"
         if title and content:
-            conn.execute(
-                "INSERT INTO notes (user_id, title, content, created_at, is_public) VALUES (?, ?, ?, ?, ?)",
-                (session["user_id"], title, content, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), is_public)
+            safe_title = bleach_clean(title, strip=True)
+            safe_content = bleach_clean(content, strip=True)
+            note = Note(
+                user_id=session["user_id"],
+                title=safe_title,
+                content=safe_content,
+                created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                is_public=is_public,
             )
-            conn.commit()
+            db.session.add(note)
+            db.session.commit()
             flash("Note created successfully.", "success")
         else:
             flash("Title and content are required.", "error")
         return redirect(url_for("notes_hub"))
 
+    note_query = Note.query.filter_by(user_id=session["user_id"])
     if query:
-        notes = conn.execute(
-            "SELECT * FROM notes WHERE user_id = ? AND (title LIKE ? OR content LIKE ?) ORDER BY created_at DESC",
-            (session["user_id"], f"%{query}%", f"%{query}%")
-        ).fetchall()
-    else:
-        notes = conn.execute(
-            "SELECT * FROM notes WHERE user_id = ? ORDER BY created_at DESC",
-            (session["user_id"],)
-        ).fetchall()
+        search = f"%{query}%"
+        note_query = note_query.filter(or_(Note.title.ilike(search), Note.content.ilike(search)))
+    notes = note_query.order_by(Note.created_at.desc()).all()
 
-    community_notes = conn.execute(
-        "SELECT * FROM notes WHERE is_public = 1 ORDER BY likes DESC LIMIT 6"
-    ).fetchall()
-    conn.close()
+    community_notes = Note.query.filter_by(is_public=True).order_by(Note.likes.desc()).limit(6).all()
 
     return render_template("notes_hub.html", notes=notes, community_notes=community_notes, query=query)
 
@@ -190,127 +211,160 @@ def notes_hub():
 @app.route("/flashcards", methods=["GET", "POST"])
 @login_required
 def flashcards():
-    conn = get_db_connection()
     if request.method == "POST":
         title = request.form.get("title", "").strip()
         question = request.form.get("question", "").strip()
         answer = request.form.get("answer", "").strip()
         visibility = request.form.get("visibility")
-        is_public = 1 if visibility == "public" else 0
+        is_public = visibility == "public"
 
         if title and question and answer:
-            cursor = conn.execute(
-                "INSERT INTO flashcards (user_id, title, created_at, is_public) VALUES (?, ?, ?, ?)",
-                (session["user_id"], title, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), is_public)
+            safe_title = bleach_clean(title, strip=True)
+            safe_question = bleach_clean(question, strip=True)
+            safe_answer = bleach_clean(answer, strip=True)
+            flashcard = Flashcard(
+                user_id=session["user_id"],
+                title=safe_title,
+                created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                is_public=is_public,
             )
-            flashcard_id = cursor.lastrowid
-            conn.execute(
-                "INSERT INTO flashcard_cards (flashcard_id, front, back) VALUES (?, ?, ?)",
-                (flashcard_id, question, answer)
+            db.session.add(flashcard)
+            db.session.flush()
+            card = FlashcardCard(
+                flashcard_id=flashcard.id,
+                front=safe_question,
+                back=safe_answer,
             )
-            conn.commit()
+            db.session.add(card)
+            db.session.commit()
             flash("Flashcard created successfully.", "success")
         else:
             flash("Please provide title, question, and answer.", "error")
-        conn.close()
         return redirect(url_for("flashcards"))
 
-    flashcards = conn.execute(
-        "SELECT f.*, fc.front AS question, fc.back AS answer FROM flashcards f "
-        "LEFT JOIN flashcard_cards fc ON fc.flashcard_id = f.id "
-        "WHERE f.user_id = ? ORDER BY f.created_at DESC",
-        (session["user_id"],)
-    ).fetchall()
-    trending = conn.execute(
-        "SELECT f.*, fc.front AS question, fc.back AS answer FROM flashcards f "
-        "LEFT JOIN flashcard_cards fc ON fc.flashcard_id = f.id "
-        "WHERE f.is_public = 1 ORDER BY f.id DESC LIMIT 6"
-    ).fetchall()
-    conn.close()
+    flashcards = Flashcard.query.options(joinedload(Flashcard.card)).filter_by(user_id=session["user_id"]).order_by(Flashcard.created_at.desc()).all()
+    trending = Flashcard.query.options(joinedload(Flashcard.card)).filter_by(is_public=True).order_by(Flashcard.id.desc()).limit(6).all()
     return render_template("flashcards.html", flashcards=flashcards, trending=trending)
 
 
 @app.route("/timer")
 @login_required
 def timer():
-    conn = get_db_connection()
-    sessions = conn.execute(
-        "SELECT COUNT(*) AS total, COALESCE(SUM(duration_minutes), 0) AS minutes FROM study_sessions WHERE user_id = ?",
-        (session["user_id"],)
-    ).fetchone()
-    conn.close()
-    total_minutes = sessions["minutes"] if sessions else 0
+    sessions_completed = StudySession.query.filter_by(user_id=session["user_id"]).count()
+    total_minutes = db.session.query(
+        func.coalesce(func.sum(StudySession.duration_minutes), 0)
+    ).filter(StudySession.user_id == session["user_id"]).scalar() or 0
     return render_template(
         "timer.html",
         total_minutes=total_minutes,
-        sessions_completed=sessions["total"] if sessions else 0
+        sessions_completed=sessions_completed
     )
 
 
 @app.route("/groups", methods=["GET", "POST"])
 @login_required
 def groups():
-    conn = get_db_connection()
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         description = request.form.get("description", "").strip()
         if name and description:
-            cursor = conn.execute(
-                "INSERT INTO groups (name, description, created_by, created_at, member_count) VALUES (?, ?, ?, ?, ?)",
-                (name, description, session["user_id"], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 1)
+            safe_name = bleach_clean(name, strip=True)
+            safe_description = bleach_clean(description, strip=True)
+            group = Group(
+                name=safe_name,
+                description=safe_description,
+                created_by=session["user_id"],
+                created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                member_count=1,
             )
-            group_id = cursor.lastrowid
-            conn.execute(
-                "INSERT INTO group_members (group_id, user_id, joined_at) VALUES (?, ?, ?)",
-                (group_id, session["user_id"], datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            db.session.add(group)
+            db.session.flush()
+            membership = GroupMember(
+                group_id=group.id,
+                user_id=session["user_id"],
+                joined_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             )
-            conn.commit()
+            db.session.add(membership)
+            db.session.commit()
             flash("Study group created successfully.", "success")
         else:
             flash("Please provide a group name and description.", "error")
-        conn.close()
         return redirect(url_for("groups"))
 
-    my_groups = conn.execute(
-        "SELECT g.* FROM groups g JOIN group_members gm ON g.id = gm.group_id WHERE gm.user_id = ?",
-        (session["user_id"],)
-    ).fetchall()
-    recommended = conn.execute("SELECT * FROM groups ORDER BY member_count DESC LIMIT 6").fetchall()
-    conn.close()
+    my_groups = Group.query.join(GroupMember).filter(GroupMember.user_id == session["user_id"]).all()
+    recommended = Group.query.order_by(Group.member_count.desc()).limit(6).all()
     return render_template("groups.html", groups=my_groups, recommended=recommended)
 
 
 @app.route("/feed")
 @login_required
 def feed():
-    conn = get_db_connection()
-    posts = conn.execute(
-        "SELECT p.*, u.username FROM posts p JOIN users u ON p.user_id = u.id ORDER BY p.created_at DESC LIMIT 12"
-    ).fetchall()
-    conn.close()
+    posts = Post.query.options(joinedload(Post.user)).order_by(Post.created_at.desc()).limit(12).all()
     return render_template("feed.html", posts=posts)
 
 
 @app.route("/profile")
 @login_required
 def profile():
-    conn = get_db_connection()
-    user = conn.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
-    achievements = conn.execute("SELECT * FROM achievements WHERE user_id = ? ORDER BY unlocked_at DESC", (session["user_id"],)).fetchall()
-    conn.close()
+    user = User.query.get(session["user_id"])
+    achievements = Achievement.query.filter_by(user_id=user.id).order_by(Achievement.unlocked_at.desc()).all()
     return render_template("profile.html", user=user, achievements=achievements)
+
+
+@app.route("/profile/edit", methods=["GET", "POST"])
+@login_required
+def edit_profile():
+    user = User.query.get(session["user_id"])
+    if request.method == "POST":
+        bio = request.form.get("bio", "").strip()
+        course = request.form.get("course", "").strip()
+        file = request.files.get("profile_pic")
+
+        if file and file.filename:
+            if not allowed_file(file.filename):
+                flash("Invalid image type. Allowed: png, jpg, jpeg, gif", "error")
+                return redirect(url_for("edit_profile"))
+            filename = secure_filename(f"{user.id}_{int(datetime.now().timestamp())}_{file.filename}")
+            upload_path = os.path.join(app.config.get("UPLOAD_FOLDER"))
+            os.makedirs(upload_path, exist_ok=True)
+            file.save(os.path.join(upload_path, filename))
+            user.profile_pic = os.path.join("static", "uploads", filename)
+
+        user.bio = bleach_clean(bio, strip=True)
+        user.course = bleach_clean(course, strip=True)
+        db.session.commit()
+        flash("Profile updated.", "success")
+        return redirect(url_for("profile"))
+
+    return render_template("profile_edit.html", user=user)
 
 
 @app.route("/notifications")
 @login_required
 def notifications():
-    conn = get_db_connection()
-    notes = conn.execute(
-        "SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 20",
-        (session["user_id"],)
-    ).fetchall()
-    conn.close()
-    return render_template("notifications.html", notifications=notes)
+    notifications = Notification.query.filter_by(user_id=session["user_id"]).order_by(Notification.created_at.desc()).limit(50).all()
+    return render_template("notifications.html", notifications=notifications)
+
+
+@app.route("/notifications/mark_read/<int:notification_id>", methods=["POST"])
+@login_required
+def mark_notification_read(notification_id):
+    notif = Notification.query.get(notification_id)
+    if not notif or notif.user_id != session.get("user_id"):
+        flash("Notification not found.", "error")
+        return redirect(url_for("notifications"))
+    notif.is_read = True
+    db.session.commit()
+    return redirect(url_for("notifications"))
+
+
+@app.route("/notifications/mark_all_read", methods=["POST"])
+@login_required
+def mark_all_notifications_read():
+    Notification.query.filter_by(user_id=session.get("user_id"), is_read=False).update({"is_read": True})
+    db.session.commit()
+    flash("All notifications marked as read.", "success")
+    return redirect(url_for("notifications"))
 
 
 @app.route("/assistant", methods=["GET", "POST"])
@@ -330,9 +384,7 @@ def assistant():
 @app.route("/achievements")
 @login_required
 def achievements():
-    conn = get_db_connection()
-    achievements_list = conn.execute("SELECT * FROM achievements WHERE user_id = ? ORDER BY unlocked_at DESC", (session["user_id"],)).fetchall()
-    conn.close()
+    achievements_list = Achievement.query.filter_by(user_id=session["user_id"]).order_by(Achievement.unlocked_at.desc()).all()
     return render_template("achievements.html", achievements=achievements_list)
 
 
