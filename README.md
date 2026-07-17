@@ -1,4 +1,4 @@
-# Study Room
+# Study Space
 
 A Flask-based study hub with notes, flashcards, groups, and more.
 
@@ -16,7 +16,14 @@ python -m pip install -r requirements.txt
 python app.py
 ```
 
-3. Open:
+3. Apply database migrations when setting up a new database:
+
+```bash
+$env:FLASK_APP="app:app"
+python -m flask db upgrade
+```
+
+4. Open:
 
 ```
 http://127.0.0.1:5000
@@ -41,14 +48,45 @@ waitress-serve --listen=0.0.0.0:$PORT wsgi:app
 ```
 
 - Use environment variables:
-  - `SECRET_KEY` for Flask secret key (required)
+  - `SECRET_KEY` for Flask secret key (required; production requires at least 32 characters and cannot use the development fallback)
   - `DATABASE_URL` for a custom database file path (optional)
+  - `RATELIMIT_STORAGE_URI` for Flask-Limiter storage, for example Redis in production
+  - `PDF_ALLOWED_DOMAINS` as a comma-separated allowlist for embedded PDF URLs
   - `SESSION_COOKIE_SECURE=1` when running behind HTTPS in production
   - `PORT` for the listen port
   - `FLASK_DEBUG=0` for production
   - `FLASK_ENV=development` for local development if you want relaxed session cookie handling
+  - `APP_BASE_URL` for absolute email links
+  - `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_USE_TLS`, `MAIL_DEFAULT_SENDER` for SMTP email delivery
 
 > For local development, create a `.env` file from `.env.example` or export `SECRET_KEY` before starting the app.
+
+### Database migrations
+
+Schema changes are managed with Flask-Migrate/Alembic in the `migrations/` folder. Do not add `db.create_all()` to normal app startup.
+
+Useful commands:
+
+```bash
+$env:FLASK_APP="app:app"
+python -m flask db migrate -m "describe change"
+python -m flask db upgrade
+python -m flask db current
+```
+
+Current migration head:
+
+```text
+f7a9b1c3d5e6_email_change_foundation
+```
+
+For an existing pre-migration SQLite database, create a backup, stamp the baseline, then upgrade:
+
+```bash
+$env:FLASK_APP="app:app"
+python -m flask db stamp 0001_initial_schema
+python -m flask db upgrade
+```
 
 ### Local environment example
 
@@ -59,7 +97,96 @@ SECRET_KEY=replace-with-a-secure-random-string
 DATABASE_URL=database.db
 FLASK_DEBUG=1
 FLASK_ENV=development
+RATELIMIT_STORAGE_URI=memory://
+PDF_ALLOWED_DOMAINS=
+APP_BASE_URL=http://127.0.0.1:5000
+MAIL_SERVER=
+MAIL_PORT=587
+MAIL_USERNAME=
+MAIL_PASSWORD=
+MAIL_USE_TLS=1
+MAIL_DEFAULT_SENDER=
 ```
+
+### Security configuration
+
+Production mode is enabled with `FLASK_ENV=production`. In production, the app refuses to start unless:
+
+- `SECRET_KEY` is set to a non-default value of at least 32 characters.
+- `RATELIMIT_STORAGE_URI` is not `memory://`.
+
+Recommended production examples:
+
+```env
+FLASK_ENV=production
+FLASK_DEBUG=0
+SECRET_KEY=replace-with-a-long-random-secret-from-a-password-manager
+RATELIMIT_STORAGE_URI=redis://localhost:6379/0
+PDF_ALLOWED_DOMAINS=example.edu,cdn.example.edu
+```
+
+Embedded PDF URLs must use HTTPS and match `PDF_ALLOWED_DOMAINS`. Profile image uploads are checked by extension, MIME type, and file signature.
+
+See `SECURITY.md` for the deployment checklist, account-data rules, and remaining security risks.
+
+Sensitive account actions are recorded in the `security_events` table. This includes registration, login success/failure, logout, settings updates, password changes, data export, and account deletion attempts.
+
+Email verification foundation is present: new accounts receive a hashed verification token, `/verify-email/<token>` marks the email verified, and `/settings/resend-verification` refreshes the token. If SMTP is configured, Study Space sends the link by email; otherwise development mode flashes the verification route so the flow can be tested locally.
+
+Password reset foundation is present: `/forgot-password` prepares a hashed, expiring reset token, `/reset-password/<token>` lets the user set a new strong password, and the request response is neutral to avoid exposing whether an email exists. If SMTP is configured, Study Space sends the reset link by email; otherwise development mode flashes the reset route when a known email requests a reset.
+
+Email change is password-confirmed and token-confirmed. `/settings/change-email` prepares a pending address and `/settings/confirm-email-change/<token>` applies it only after confirmation. `/settings/security-history` shows recent user security events.
+
+### Account profile and settings foundation
+
+User-owned account data is split into:
+
+- `users` for authentication identity and legacy compatibility fields.
+- `user_profiles` for display, academic profile and privacy visibility settings.
+- `user_settings` for theme, language, timezone, accessibility and notification preferences.
+
+The migration `a2d4e6f8b0c1_user_profile_settings` backfills existing users from the legacy `users.course`, `users.bio` and `users.profile_pic` fields. Those legacy columns are intentionally kept synchronized for now to preserve existing routes and templates during the architecture cleanup.
+
+The migration `c4d6e8f0a1b3_normalize_user_emails` lowercases and trims existing user emails. If existing accounts only differ by casing/spacing, the earliest account keeps the normalized address and later conflicts receive a deterministic `+user{id}` suffix before the email domain so no account is deleted.
+
+Later cleanup migrations add email verification, password reset, and email-change foundations. Run `python -m flask db current` after upgrading to verify the deployed database is at `f7a9b1c3d5e6_email_change_foundation` or a later migration.
+
+Users can download their account data from `/settings/export`. The export is JSON and includes authentication identity, profile/settings, notes, tasks, events, study sessions, flashcards, achievements, notifications and user-owned community records.
+
+Account deletion is available from `/settings` and is intentionally POST-only. It requires the current password and the typed confirmation `DELETE`, then removes dependent user-owned records before deleting the account. Groups created by the deleted user are transferred to another member when possible; groups with no remaining members are removed. Keep this route protected by CSRF in production.
+
+Run this after pulling the cleanup pass:
+
+```bash
+$env:FLASK_APP="app:app"
+python -m flask db upgrade
+```
+
+### Testing
+
+Run all regression tests:
+
+```bash
+python -m unittest discover -s tests
+```
+
+The suite covers authenticated route smoke checks, registration/login/logout, security helpers, note/task/study-session writes, and normalized profile/settings writes.
+
+### Performance and accessibility notes
+
+List-heavy pages use server-side pagination instead of loading unlimited rows:
+
+- `/notes_hub` and `/notes` show 12 notes per page.
+- `/tasks` shows 12 tasks per page while preserving status and priority filters.
+- `/notifications` shows 25 notifications per page.
+- `/flashcards`, `/groups`, and `/achievements` show 12 records per page.
+- `/profile` caps achievement preview data to recent records.
+
+Saved account preferences are applied to the rendered shell:
+
+- `language` sets the page `lang` attribute.
+- `theme` and `high_contrast` add body classes for accessible contrast.
+- `reduced_motion` disables decorative particles and minimizes CSS motion.
 
 ### Notes
 

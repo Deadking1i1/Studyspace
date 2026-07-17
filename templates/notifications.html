@@ -6,12 +6,12 @@
 {% block content %}
 <div class="card notifications-panel">
     {% if notifications %}
-        <form method="POST" action="{{ url_for('mark_all_notifications_read') }}">
-            {{ csrf_token() }}
+        <form method="POST" action="{{ url_for('notifications.mark_all_notifications_read') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="small-link">Mark all read</button>
         </form>
         <ul class="notification-list">
-            <template>{% for notification in notifications %}</template>
+            {% for notification in notifications %}
             <li class="notification-item {% if not notification.is_read %}unread{% endif %}">
                 <div class="notification-body">
                     <strong>{{ notification.title }}</strong>
@@ -20,15 +20,26 @@
                 </div>
                 <div class="notification-actions">
                     {% if not notification.is_read %}
-                        <form method="POST" action="{{ url_for('mark_notification_read', notification_id=notification.id) }}">
-                            {{ csrf_token() }}
+                        <form method="POST" action="{{ url_for('notifications.mark_notification_read', notification_id=notification.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit">Mark read</button>
                         </form>
                     {% endif %}
                 </div>
             </li>
-            <template>{% endfor %}</template>
+            {% endfor %}
         </ul>
+        {% if pagination and pagination.pages > 1 %}
+            <nav class="pagination" aria-label="Notification pages">
+                {% if pagination.has_prev %}
+                    <a href="{{ url_for('notifications.notifications', page=pagination.prev_page) }}">Previous</a>
+                {% endif %}
+                <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+                {% if pagination.has_next %}
+                    <a href="{{ url_for('notifications.notifications', page=pagination.next_page) }}">Next</a>
+                {% endif %}
+            </nav>
+        {% endif %}
     {% else %}
         <p class="empty-state">No new notifications. You'll see reminders here.</p>
     {% endif %}

@@ -1,20 +1,58 @@
 {% extends 'layout.html' %}
 
 {% block page_title %}Edit Profile{% endblock %}
-{% block page_subtitle %}Update your bio, course and profile picture.{% endblock %}
+{% block page_subtitle %}Update your study identity, academic context and privacy defaults.{% endblock %}
 
 {% block content %}
 <div class="card">
     <h3>Edit Profile</h3>
     <form method="POST" enctype="multipart/form-data">
-        {{ csrf_token() }}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-row">
+            <label for="display_name">Display name</label>
+            <input id="display_name" name="display_name" value="{{ profile_record.display_name or user.username }}">
+        </div>
         <div class="form-row">
             <label for="course">Course</label>
-            <input id="course" name="course" value="{{ user.course or '' }}">
+            <input id="course" name="course" value="{{ profile_record.course or user.course or '' }}">
         </div>
         <div class="form-row">
             <label for="bio">Bio</label>
-            <textarea id="bio" name="bio" rows="4">{{ user.bio or '' }}</textarea>
+            <textarea id="bio" name="bio" rows="4">{{ profile_record.bio or user.bio or '' }}</textarea>
+        </div>
+        <div class="form-row">
+            <label for="institution">Institution</label>
+            <input id="institution" name="institution" value="{{ profile_record.institution or '' }}">
+        </div>
+        <div class="form-row">
+            <label for="education_level">Education level</label>
+            <input id="education_level" name="education_level" value="{{ profile_record.education_level or '' }}">
+        </div>
+        <div class="form-row">
+            <label for="field_of_study">Field of study</label>
+            <input id="field_of_study" name="field_of_study" value="{{ profile_record.field_of_study or '' }}">
+        </div>
+        <div class="form-row">
+            <label for="country">Country</label>
+            <input id="country" name="country" value="{{ profile_record.country or '' }}">
+        </div>
+        <div class="form-row">
+            <label for="profile_visibility">Profile visibility</label>
+            <select id="profile_visibility" name="profile_visibility">
+                <option value="private" {% if profile_record.profile_visibility == 'private' %}selected{% endif %}>Private</option>
+                <option value="classmates" {% if profile_record.profile_visibility == 'classmates' %}selected{% endif %}>Classmates</option>
+                <option value="public" {% if profile_record.profile_visibility == 'public' %}selected{% endif %}>Public</option>
+            </select>
+        </div>
+        <div class="checkbox-stack">
+            <label class="checkbox-row">
+                <input type="checkbox" name="show_email" {% if profile_record.show_email %}checked{% endif %}>
+                Show email on profile
+            </label>
+            <label class="checkbox-row">
+                <input type="checkbox" name="show_academic_profile" {% if profile_record.show_academic_profile %}checked{% endif %}>
+                Show academic profile
+            </label>
         </div>
         <div class="form-row">
             <label for="profile_pic">Profile picture</label>

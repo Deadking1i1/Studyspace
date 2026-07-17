@@ -9,14 +9,25 @@
         <div class="achievement-grid">
             {% for item in achievements %}
                 <article class="achievement-card">
-                    <h3>{{ item.name }}</h3>
+                    <h3>{{ item.title }}</h3>
                     <p>{{ item.description }}</p>
-                    <span class="achievement-status">{{ item.status }}</span>
+                    <span class="achievement-status">Unlocked {{ item.unlocked_at }}</span>
                 </article>
             {% endfor %}
         </div>
     {% else %}
         <p class="empty-state">No achievements unlocked yet. Keep studying to earn badges.</p>
+    {% endif %}
+    {% if pagination and pagination.pages > 1 %}
+        <nav class="pagination" aria-label="Achievement pages">
+            {% if pagination.has_prev %}
+                <a href="{{ url_for('achievements.achievements', page=pagination.prev_page) }}">Previous</a>
+            {% endif %}
+            <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+            {% if pagination.has_next %}
+                <a href="{{ url_for('achievements.achievements', page=pagination.next_page) }}">Next</a>
+            {% endif %}
+        </nav>
     {% endif %}
 </div>
 {% endblock %}

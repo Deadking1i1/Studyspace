@@ -4,22 +4,61 @@
 {% block page_subtitle %}Manage your account and personalize your study experience.{% endblock %}
 
 {% block content %}
-<div class="card profile-panel">
-    <h2>{{ user.username }}</h2>
-    <p>{{ user.email }}</p>
-    <div class="profile-stats">
-        <div>
-            <span>{{ user.streak_days | default(0) }}</span>
-            <p>Streak</p>
+<div class="profile-grid">
+    <section class="card profile-panel">
+        <div class="profile-identity">
+            {% if profile_record.profile_pic %}
+                <img src="{{ url_for('static', filename=profile_record.profile_pic.replace('static/', '')) }}" alt="">
+            {% else %}
+                <div class="profile-avatar">{{ (profile_record.display_name or user.username)[:2] | upper }}</div>
+            {% endif %}
+            <div>
+                <h2>{{ profile_record.display_name or user.username }}</h2>
+                <p>{{ profile_record.course or 'No course added yet' }}</p>
+                <span class="mini-badge">{{ profile_record.profile_visibility | title }} profile</span>
+            </div>
         </div>
-        <div>
-            <span>{{ user.study_hours | default(0) }}</span>
-            <p>Study Hours</p>
+        {% if profile_record.bio %}
+            <p class="profile-bio">{{ profile_record.bio }}</p>
+        {% endif %}
+        <div class="profile-stats">
+            <div>
+                <span>{{ user.streak_days | default(0) }}</span>
+                <p>Streak</p>
+            </div>
+            <div>
+                <span>{{ study_hours | default(0) }}</span>
+                <p>Study Hours</p>
+            </div>
+            <div>
+                <span>{{ completed_tasks | default(0) }}</span>
+                <p>Tasks Done</p>
+            </div>
         </div>
-        <div>
-            <span>{{ user.completed_tasks | default(0) }}</span>
-            <p>Tasks Done</p>
+        <div class="action-row">
+            <a class="btn-link" href="{{ url_for('profile.edit_profile') }}">Edit profile</a>
+            <a class="btn-link" href="{{ url_for('settings.settings') }}">Settings</a>
         </div>
-    </div>
+    </section>
+
+    <section class="card">
+        <h3>Academic Profile</h3>
+        <div class="detail-list">
+            <p><strong>Institution</strong><span>{{ profile_record.institution or 'Not set' }}</span></p>
+            <p><strong>Education level</strong><span>{{ profile_record.education_level or 'Not set' }}</span></p>
+            <p><strong>Field of study</strong><span>{{ profile_record.field_of_study or 'Not set' }}</span></p>
+            <p><strong>Country</strong><span>{{ profile_record.country or 'Not set' }}</span></p>
+        </div>
+    </section>
+
+    <section class="card">
+        <h3>Privacy</h3>
+        <div class="detail-list">
+            <p><strong>Email visibility</strong><span>{{ 'Visible' if profile_record.show_email else 'Private' }}</span></p>
+            <p><strong>Academic profile</strong><span>{{ 'Visible' if profile_record.show_academic_profile else 'Private' }}</span></p>
+            <p><strong>Theme</strong><span>{{ settings.theme | replace('-', ' ') | title }}</span></p>
+            <p><strong>Timezone</strong><span>{{ settings.timezone }}</span></p>
+        </div>
+    </section>
 </div>
 {% endblock %}

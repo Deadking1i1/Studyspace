@@ -17,12 +17,18 @@
         <span>My Notes</span>
         <strong>{{ notes_count }}</strong>
     </div>
+    <div class="stat-card">
+        <span>Open Tasks</span>
+        <strong>{{ open_tasks_count }}</strong>
+    </div>
 </div>
 
 <div class="quick-actions card">
     <h3>Quick Actions</h3>
     <div class="action-grid">
         <a href="/notes_hub" class="action-card">Create Note</a>
+        <a href="/tasks" class="action-card">Plan Tasks</a>
+        <a href="/hub" class="action-card">Add Calendar Event</a>
         <a href="/flashcards" class="action-card">Create Flashcard</a>
         <a href="/timer" class="action-card">Start Study Timer</a>
         <a href="/groups" class="action-card">Join Study Group</a>
@@ -31,15 +37,50 @@
 
 <div class="section-grid">
     <section class="card activity-card">
-        <h3>Recent Activity</h3>
-        {% if recent_activity %}
+        <h3>Today's Schedule</h3>
+        {% if today_events %}
             <ul>
-                {% for item in recent_activity %}
-                    <li>{{ item.created_at }} — {{ item.content }}</li>
+                {% for event in today_events %}
+                    <li><strong>{{ event.name }}</strong>{% if event.notes %} - {{ event.notes }}{% endif %}</li>
                 {% endfor %}
             </ul>
         {% else %}
-            <p>No activity yet. Start by creating a note or joining a group.</p>
+            <p>No calendar events for today.</p>
+        {% endif %}
+    </section>
+
+    <section class="card activity-card">
+        <h3>Upcoming Deadlines</h3>
+        {% if upcoming_tasks %}
+            <ul>
+                {% for task in upcoming_tasks %}
+                    <li><strong>{{ task.task }}</strong> - due {{ task.due_date }}{% if task.subject %} - {{ task.subject }}{% endif %}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No open tasks due in the next week.</p>
+        {% endif %}
+    </section>
+
+    <section class="card activity-card">
+        <h3>Recent Notes</h3>
+        {% if recent_notes %}
+            <ul>
+                {% for note in recent_notes %}
+                    <li><strong>{{ note.title }}</strong>{% if note.subject %} - {{ note.subject }}{% endif %}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No notes yet. Start by creating one.</p>
+        {% endif %}
+    </section>
+
+    <section class="card activity-card">
+        <h3>Focus Status</h3>
+        {% if latest_session %}
+            <p>Last session: {{ latest_session.duration_minutes }} minutes.</p>
+        {% else %}
+            <p>No focus sessions logged yet.</p>
         {% endif %}
     </section>
 
@@ -62,3 +103,4 @@
     </section>
 </div>
 {% endblock %}
+

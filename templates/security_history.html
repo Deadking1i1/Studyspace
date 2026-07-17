@@ -1,0 +1,24 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Security History{% endblock %}
+{% block page_subtitle %}Review recent account security activity.{% endblock %}
+
+{% block content %}
+<div class="card">
+    {% if events %}
+        <div class="detail-list">
+            {% for event in events %}
+                <p>
+                    <strong>{{ event.event_type }}</strong>
+                    <span>{{ event.created_at }}{% if event.ip_address %} from {{ event.ip_address }}{% endif %}</span>
+                </p>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="empty-state">No security activity recorded yet.</p>
+    {% endif %}
+    <div class="action-row">
+        <a class="btn-link" href="{{ url_for('settings.settings') }}">Back to settings</a>
+    </div>
+</div>
+{% endblock %}

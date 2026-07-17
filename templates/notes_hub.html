@@ -7,13 +7,21 @@
 <div class="card notes-panel">
     <div class="section-header">
         <h2>My Notes</h2>
+        <form method="GET" class="toolbar-form">
+            <input name="q" value="{{ query or '' }}" placeholder="Search notes, subjects, or tags">
+            <label class="checkbox-row">
+                <input type="checkbox" name="archived" value="1" {% if show_archived %}checked{% endif %}>
+                Archived
+            </label>
+            <button type="submit">Search</button>
+        </form>
     </div>
 
     <div class="notes-hub-grid">
         <div class="note-create card">
             <h3>Create a new note</h3>
             <form method="POST">
-                {{ csrf_token() }}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-row">
                     <label for="title">Title</label>
                     <input id="title" name="title" required>
@@ -21,6 +29,14 @@
                 <div class="form-row">
                     <label for="content">Content</label>
                     <textarea id="content" name="content" rows="5" required></textarea>
+                </div>
+                <div class="form-row">
+                    <label for="subject">Subject</label>
+                    <input id="subject" name="subject" placeholder="Math, Biology, History">
+                </div>
+                <div class="form-row">
+                    <label for="tags">Tags</label>
+                    <input id="tags" name="tags" placeholder="exam, chapter 3, revision">
                 </div>
                 <div class="form-row inline">
                     <label for="visibility">Visibility</label>
@@ -38,14 +54,82 @@
                 <div class="notes-grid">
                     {% for note in notes %}
                         <article class="note-card">
-                            <h3>{{ note.title }}</h3>
-                            <p>{{ note.content[:150] }}{% if note.content|length > 150 %}â€¦{% endif %}</p>
+                            <div class="note-card-header">
+                                <h3>{{ note.title }}</h3>
+                                <span class="note-badges">
+                                    {% if note.is_pinned %}<span class="mini-badge">Pinned</span>{% endif %}
+                                    {% if note.is_favorite %}<span class="mini-badge">Favourite</span>{% endif %}
+                                </span>
+                            </div>
+                            {% if note.subject or note.tags %}
+                                <p class="note-meta">{{ note.subject or 'General' }}{% if note.tags %} - {{ note.tags }}{% endif %}</p>
+                            {% endif %}
+                            <p>{{ note.content[:150] }}{% if note.content|length > 150 %}...{% endif %}</p>
                             <div class="note-meta">Updated {{ note.created_at }}</div>
+                            <details class="inline-editor">
+                                <summary>Edit</summary>
+                                <form method="POST" action="{{ url_for('notes.edit_note', note_id=note.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <div class="form-row">
+                                        <label for="edit-title-{{ note.id }}">Title</label>
+                                        <input id="edit-title-{{ note.id }}" name="title" value="{{ note.title }}" required>
+                                    </div>
+                                    <div class="form-row">
+                                        <label for="edit-content-{{ note.id }}">Content</label>
+                                        <textarea id="edit-content-{{ note.id }}" name="content" rows="4" required>{{ note.content }}</textarea>
+                                    </div>
+                                    <div class="form-row">
+                                        <label for="edit-subject-{{ note.id }}">Subject</label>
+                                        <input id="edit-subject-{{ note.id }}" name="subject" value="{{ note.subject or '' }}">
+                                    </div>
+                                    <div class="form-row">
+                                        <label for="edit-tags-{{ note.id }}">Tags</label>
+                                        <input id="edit-tags-{{ note.id }}" name="tags" value="{{ note.tags or '' }}">
+                                    </div>
+                                    <div class="form-row inline">
+                                        <label for="edit-visibility-{{ note.id }}">Visibility</label>
+                                        <select id="edit-visibility-{{ note.id }}" name="visibility">
+                                            <option value="private" {% if not note.is_public %}selected{% endif %}>Private</option>
+                                            <option value="public" {% if note.is_public %}selected{% endif %}>Public</option>
+                                        </select>
+                                    </div>
+                                    <button type="submit">Save Changes</button>
+                                </form>
+                            </details>
+                            <div class="action-row">
+                                <form method="POST" action="{{ url_for('notes.update_note_state', note_id=note.id, action='pin') }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="button-link">{{ 'Unpin' if note.is_pinned else 'Pin' }}</button>
+                                </form>
+                                <form method="POST" action="{{ url_for('notes.update_note_state', note_id=note.id, action='favorite') }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="button-link">{{ 'Unfavourite' if note.is_favorite else 'Favourite' }}</button>
+                                </form>
+                                <form method="POST" action="{{ url_for('notes.update_note_state', note_id=note.id, action='restore' if note.is_archived else 'archive') }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="button-link">{{ 'Restore' if note.is_archived else 'Archive' }}</button>
+                                </form>
+                                <form method="POST" action="{{ url_for('notes.update_note_state', note_id=note.id, action='delete') }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="button-link danger-link">Delete</button>
+                                </form>
+                            </div>
                         </article>
                     {% endfor %}
                 </div>
             {% else %}
                 <p class="empty-state">You don't have any notes yet.</p>
+            {% endif %}
+            {% if pagination and pagination.pages > 1 %}
+                <nav class="pagination" aria-label="Notes pages">
+                    {% if pagination.has_prev %}
+                        <a href="{{ url_for('notes.notes_hub', q=query, archived='1' if show_archived else '0', page=pagination.prev_page) }}">Previous</a>
+                    {% endif %}
+                    <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+                    {% if pagination.has_next %}
+                        <a href="{{ url_for('notes.notes_hub', q=query, archived='1' if show_archived else '0', page=pagination.next_page) }}">Next</a>
+                    {% endif %}
+                </nav>
             {% endif %}
         </div>
     </div>
@@ -55,9 +139,9 @@
 <div class="card community-notes-panel">
     <h3>Popular public notes</h3>
     <ul>
-        <template>{% for note in community_notes %}</template>
-        <li>{{ note.title }}</li>
-        <template>{% endfor %}</template>
+        {% for note in community_notes %}
+            <li>{{ note.title }}</li>
+        {% endfor %}
     </ul>
 </div>
 {% endif %}

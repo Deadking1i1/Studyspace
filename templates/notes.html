@@ -6,7 +6,7 @@
 {% block content %}
 
 <form class="panel card" method="POST">
-    {{ csrf_token() }}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-row">
         <label for="title">Title</label>
         <input id="title" name="title" placeholder="Note title" required>
@@ -33,12 +33,24 @@
                     <h3>{{ note.title }}</h3>
                     <p>{{ note.content[:180] }}{% if note.content|length > 180 %}...{% endif %}</p>
                 </div>
-                <a class="btn-link" href="{{ url_for('summarize_note', note_id=note.id) }}">Summarize</a>
+                <a class="btn-link" href="{{ url_for('notes.summarize_note', note_id=note.id) }}">Summarize</a>
             </article>
         {% endfor %}
     {% else %}
         <div class="card empty-state">You don't have any notes yet. Add one above.</div>
     {% endif %}
 </div>
+
+{% if pagination and pagination.pages > 1 %}
+    <nav class="pagination" aria-label="Notes pages">
+        {% if pagination.has_prev %}
+            <a href="{{ url_for('notes.notes', page=pagination.prev_page) }}">Previous</a>
+        {% endif %}
+        <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+        {% if pagination.has_next %}
+            <a href="{{ url_for('notes.notes', page=pagination.next_page) }}">Next</a>
+        {% endif %}
+    </nav>
+{% endif %}
 
 {% endblock %} 

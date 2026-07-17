@@ -12,7 +12,7 @@
     <div class="group-create card">
         <h3>Create a new group</h3>
         <form method="POST">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-row">
                 <label for="name">Group Name</label>
                 <input id="name" name="name" required>
@@ -37,6 +37,17 @@
         </div>
     {% else %}
         <p class="empty-state">No study groups found. Create one to invite classmates.</p>
+    {% endif %}
+    {% if pagination and pagination.pages > 1 %}
+        <nav class="pagination" aria-label="Group pages">
+            {% if pagination.has_prev %}
+                <a href="{{ url_for('groups.groups', page=pagination.prev_page) }}">Previous</a>
+            {% endif %}
+            <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+            {% if pagination.has_next %}
+                <a href="{{ url_for('groups.groups', page=pagination.next_page) }}">Next</a>
+            {% endif %}
+        </nav>
     {% endif %}
 
     {% if recommended %}

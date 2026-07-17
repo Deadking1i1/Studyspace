@@ -1,0 +1,122 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Settings{% endblock %}
+{% block page_subtitle %}Tune Study Space for your language, accessibility needs and study routine.{% endblock %}
+
+{% block content %}
+<div class="settings-grid">
+    <section class="card">
+        <h3>Preferences</h3>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row">
+                <label for="theme">Theme</label>
+                <select id="theme" name="theme">
+                    <option value="dark" {% if user_settings.theme == 'dark' %}selected{% endif %}>Dark focus</option>
+                    <option value="high-contrast" {% if user_settings.theme == 'high-contrast' %}selected{% endif %}>High contrast</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="language">Language</label>
+                <input id="language" name="language" value="{{ user_settings.language or 'en' }}" maxlength="16">
+            </div>
+            <div class="form-row">
+                <label for="timezone">Timezone</label>
+                <input id="timezone" name="timezone" value="{{ user_settings.timezone or 'UTC' }}" maxlength="64">
+            </div>
+            <div class="checkbox-stack">
+                <label class="checkbox-row">
+                    <input type="checkbox" name="reduced_motion" {% if user_settings.reduced_motion %}checked{% endif %}>
+                    Reduce motion
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" name="high_contrast" {% if user_settings.high_contrast %}checked{% endif %}>
+                    Prefer high contrast
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" name="email_notifications" {% if user_settings.email_notifications %}checked{% endif %}>
+                    Email notifications
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" name="study_reminders" {% if user_settings.study_reminders %}checked{% endif %}>
+                    Study reminders
+                </label>
+            </div>
+            <button type="submit">Save settings</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h3>Account</h3>
+        <div class="detail-list">
+            <p><strong>Username</strong><span>{{ user.username }}</span></p>
+            <p><strong>Email</strong><span>{{ user.email }}</span></p>
+            <p><strong>Email status</strong><span>{{ 'Verified' if user.email_verified else 'Unverified' }}</span></p>
+            {% if user.pending_email %}
+                <p><strong>Pending email</strong><span>{{ user.pending_email }}</span></p>
+            {% endif %}
+            <p><strong>Profile visibility</strong><span>{{ profile_record.profile_visibility | title }}</span></p>
+        </div>
+        <div class="action-row">
+            <a class="btn-link" href="{{ url_for('profile.edit_profile') }}">Edit profile</a>
+            <a class="btn-link" href="{{ url_for('settings.export_account') }}">Export data</a>
+            <a class="btn-link" href="{{ url_for('settings.security_history') }}">Security history</a>
+            {% if not user.email_verified %}
+                <form method="POST" action="{{ url_for('settings.resend_verification') }}" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="button-link">Resend verification</button>
+                </form>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="card">
+        <h3>Security</h3>
+        <form method="POST" action="{{ url_for('settings.change_email') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row">
+                <label for="new-email">New email</label>
+                <input id="new-email" name="new_email" type="email" autocomplete="email">
+            </div>
+            <div class="form-row">
+                <label for="email-change-password">Current password</label>
+                <input id="email-change-password" name="password" type="password" autocomplete="current-password">
+            </div>
+            <button type="submit">Change email</button>
+        </form>
+        <form method="POST" action="{{ url_for('settings.change_password') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row">
+                <label for="current-password">Current password</label>
+                <input id="current-password" name="current_password" type="password" autocomplete="current-password" required>
+            </div>
+            <div class="form-row">
+                <label for="new-password">New password</label>
+                <input id="new-password" name="new_password" type="password" autocomplete="new-password" required>
+            </div>
+            <div class="form-row">
+                <label for="confirm-password">Confirm new password</label>
+                <input id="confirm-password" name="confirm_password" type="password" autocomplete="new-password" required>
+            </div>
+            <button type="submit">Change password</button>
+        </form>
+    </section>
+
+    <section class="card danger-zone">
+        <h3>Delete Account</h3>
+        <p>Permanent deletion removes your account, profile, notes, tasks, study history, flashcards, notifications and community data.</p>
+        <form method="POST" action="{{ url_for('settings.delete_account') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row">
+                <label for="delete-password">Password</label>
+                <input id="delete-password" name="password" type="password" autocomplete="current-password">
+            </div>
+            <div class="form-row">
+                <label for="delete-confirmation">Type DELETE to confirm</label>
+                <input id="delete-confirmation" name="confirmation" autocomplete="off">
+            </div>
+            <button type="submit" class="danger-button">Delete account</button>
+        </form>
+    </section>
+</div>
+{% endblock %}

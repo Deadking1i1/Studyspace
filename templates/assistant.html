@@ -7,7 +7,7 @@
 <div class="card assistant-panel">
     <h2>Ask your study assistant</h2>
     <form method="POST">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-row">
             <label for="query">What do you need help with?</label>
             <textarea id="query" name="query" rows="4" required>{{ query or '' }}</textarea>

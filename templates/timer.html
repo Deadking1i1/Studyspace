@@ -7,11 +7,17 @@
 <div class="card timer-panel">
     <h2>Pomodoro Focus</h2>
     <p>Start a study session and stay on task with built-in breaks.</p>
+    <div class="timer-stats">
+        <span>{{ sessions_completed }} sessions completed</span>
+        <span>{{ total_minutes }} total minutes</span>
+    </div>
     <div class="timer-controls">
-        <button class="button primary" onclick="startTimer()">Start Session</button>
-        <button class="button secondary" onclick="pauseTimer()">Pause</button>
-        <button class="button secondary" onclick="resetTimer()">Reset</button>
+        <button class="button primary" data-timer-action="start">Start Session</button>
+        <button class="button secondary" data-timer-action="pause">Pause</button>
+        <button class="button secondary" data-timer-action="reset">Reset</button>
+        <button class="button secondary" data-timer-action="save">Save Session</button>
     </div>
     <div class="timer-display" id="timer-display">25:00</div>
+    <p class="timer-message" id="timer-message" aria-live="polite"></p>
 </div>
 {% endblock %}

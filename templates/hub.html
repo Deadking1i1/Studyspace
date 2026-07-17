@@ -12,7 +12,7 @@
             <span class="module-summary">Save ideas fast</span>
         </div>
         <form method="POST" class="mini-form">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="form_type" value="add_note">
             <div class="form-row">
                 <label for="hub-note-title">Title</label>
@@ -44,7 +44,7 @@
             <span class="module-summary">Track deadlines, classes, and study sessions</span>
         </div>
         <form method="POST" class="mini-form">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="form_type" value="add_event">
             <div class="form-row">
                 <label for="event_name">Event</label>
@@ -88,7 +88,7 @@
             <span class="badge">Draft mode</span>
         </div>
         <form id="editor-form" method="POST">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="form_type" value="save_editor">
             <div class="form-row">
                 <label for="editor-title">Document title</label>
@@ -122,7 +122,7 @@
             {% endif %}
         </div>
         <form method="POST" class="mini-form">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="form_type" value="connect_spotify">
             <div class="form-row">
                 <label for="spotify_track">Focus track or playlist</label>
@@ -141,7 +141,7 @@
             <span class="module-summary">Open a reference file alongside notes.</span>
         </div>
         <form method="POST" class="mini-form">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="form_type" value="load_pdf">
             <div class="form-row">
                 <label for="pdf_url">PDF URL</label>
@@ -150,7 +150,7 @@
             <button type="submit">Load PDF</button>
         </form>
         {% if pdf_url %}
-            <iframe src="{{ pdf_url }}" title="PDF viewer"></iframe>
+            <iframe src="{{ pdf_url }}" title="PDF viewer" sandbox></iframe>
         {% else %}
             <div class="empty-state">Load a PDF file from a URL to preview it side-by-side with your notes.</div>
         {% endif %}

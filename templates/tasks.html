@@ -6,10 +6,22 @@
 {% block content %}
 
 <form class="panel card" method="POST">
-    {{ csrf_token() }}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-row">
         <label for="task">Task</label>
         <input id="task" name="task" placeholder="Enter assignment, review, or deadline" required>
+    </div>
+    <div class="form-row">
+        <label for="subject">Subject</label>
+        <input id="subject" name="subject" placeholder="Math, Biology, Design">
+    </div>
+    <div class="form-row inline">
+        <label for="priority">Priority</label>
+        <select id="priority" name="priority">
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="low">Low</option>
+        </select>
     </div>
     <div class="form-row">
         <label for="due">Due date</label>
@@ -18,20 +30,57 @@
     <button type="submit">Add Task</button>
 </form>
 
+<form method="GET" class="panel card task-filter-bar">
+    <div class="form-row inline">
+        <label for="status">Status</label>
+        <select id="status" name="status">
+            <option value="open" {% if status == 'open' %}selected{% endif %}>Open</option>
+            <option value="completed" {% if status == 'completed' %}selected{% endif %}>Completed</option>
+            <option value="archived" {% if status == 'archived' %}selected{% endif %}>Archived</option>
+        </select>
+    </div>
+    <div class="form-row inline">
+        <label for="filter-priority">Priority</label>
+        <select id="filter-priority" name="priority">
+            <option value="">All</option>
+            <option value="high" {% if priority == 'high' %}selected{% endif %}>High</option>
+            <option value="medium" {% if priority == 'medium' %}selected{% endif %}>Medium</option>
+            <option value="low" {% if priority == 'low' %}selected{% endif %}>Low</option>
+        </select>
+    </div>
+    <button type="submit">Filter</button>
+</form>
+
 <div class="grid tasks-grid">
     {% if tasks %}
         {% for t in tasks %}
             <article class="task-card {% if t.completed %}completed{% endif %}">
                 <div class="task-card-body">
                     <strong>{{ t.task }}</strong>
+                    <span class="task-meta">{{ t.subject or 'General' }} - {{ t.priority|title }} priority</span>
                     <span class="task-meta">Due {{ t.due_date }}</span>
                 </div>
                 <div class="task-card-actions">
                     {% if not t.completed %}
-                        <a class="btn-link" href="{{ url_for('complete_task', task_id=t.id) }}">Mark complete</a>
+                        <form method="POST" action="{{ url_for('tasks.complete_task', task_id=t.id) }}" class="inline-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn-link button-link">Mark complete</button>
+                        </form>
                     {% else %}
                         <span class="status done">Completed</span>
+                        <form method="POST" action="{{ url_for('tasks.update_task_state', task_id=t.id, action='reopen') }}" class="inline-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn-link button-link">Reopen</button>
+                        </form>
                     {% endif %}
+                    <form method="POST" action="{{ url_for('tasks.update_task_state', task_id=t.id, action='restore' if t.archived else 'archive') }}" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-link button-link">{{ 'Restore' if t.archived else 'Archive' }}</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('tasks.update_task_state', task_id=t.id, action='delete') }}" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-link button-link danger-link">Delete</button>
+                    </form>
                 </div>
             </article>
         {% endfor %}
@@ -39,5 +88,17 @@
         <div class="card empty-state">No tasks yet. Add your first task above.</div>
     {% endif %}
 </div>
+
+{% if pagination and pagination.pages > 1 %}
+    <nav class="pagination" aria-label="Task pages">
+        {% if pagination.has_prev %}
+            <a href="{{ url_for('tasks.tasks', status=status, priority=priority, page=pagination.prev_page) }}">Previous</a>
+        {% endif %}
+        <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+        {% if pagination.has_next %}
+            <a href="{{ url_for('tasks.tasks', status=status, priority=priority, page=pagination.next_page) }}">Next</a>
+        {% endif %}
+    </nav>
+{% endif %}
 
 {% endblock %}
