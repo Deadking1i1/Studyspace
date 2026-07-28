@@ -114,23 +114,9 @@
             <h3>Spotify Quick Access</h3>
             <span class="module-summary">Keep focus music close.</span>
         </div>
-        <div>
-            {% if spotify_connected and current_track %}
-                <div class="spotify-status">Connected to Spotify · Now playing: <strong>{{ current_track }}</strong></div>
-            {% else %}
-                <div class="spotify-status">Spotify not connected yet.</div>
-            {% endif %}
-        </div>
-        <form method="POST" class="mini-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="form_type" value="connect_spotify">
-            <div class="form-row">
-                <label for="spotify_track">Focus track or playlist</label>
-                <input id="spotify_track" name="spotify_track" placeholder="e.g. lo-fi study beats" required>
-            </div>
-            <button type="submit">Connect Track</button>
-        </form>
-        <p class="status-note">This section gives you a central spot to manage focus music without leaving the app.</p>
+        <div class="spotify-status">Spotify playback is now available from the dedicated integration page.</div>
+        <a class="action-card" href="{{ url_for('integrations.spotify') }}">Open Spotify controls</a>
+        <p class="status-note">Connect Spotify once, then control study music without leaving Study Space.</p>
     </section>
 </div>
 

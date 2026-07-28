@@ -29,6 +29,7 @@
             <li><a href="/groups" class="{% if request.path == '/groups' %}active{% endif %}">Groups</a></li>
             <li><a href="/feed" class="{% if request.path == '/feed' %}active{% endif %}">Feed</a></li>
             <li><a href="/assistant" class="{% if request.path == '/assistant' %}active{% endif %}">Assistant</a></li>
+            <li><a href="/integrations/spotify" class="{% if request.path.startswith('/integrations/spotify') %}active{% endif %}">Spotify</a></li>
             <li><a href="/achievements" class="{% if request.path == '/achievements' %}active{% endif %}">Achievements</a></li>
             <li><a href="/settings" class="{% if request.path == '/settings' %}active{% endif %}">Settings</a></li>
         </ul>
@@ -87,5 +88,6 @@
 </div>
 
 <script src="{{ url_for('static', filename='JS/main.js') }}"></script>
+{% block page_scripts %}{% endblock %}
 </body>
 </html>

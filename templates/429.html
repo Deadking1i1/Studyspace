@@ -1,0 +1,28 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Slow down for a moment{% endblock %}
+{% block page_subtitle %}Study Space is protecting account pages from repeated requests.{% endblock %}
+
+{% block content %}
+
+<section class="module-card rate-limit-card">
+    <div class="module-header">
+        <div>
+            <h3>Too many requests</h3>
+            <p class="module-summary">You reached a temporary safety limit.</p>
+        </div>
+        <span class="badge">429</span>
+    </div>
+    <p>
+        Wait a short moment, then try again. If you were testing registration or login locally, this limit can be adjusted in your `.env` file.
+    </p>
+    {% if limit %}
+        <p class="status-note">Current limit: {{ limit }}</p>
+    {% endif %}
+    <div class="action-row">
+        <a class="action-card" href="{{ url_for('auth.login') }}">Go to login</a>
+        <a class="action-card" href="{{ url_for('auth.register') }}">Go to register</a>
+    </div>
+</section>
+
+{% endblock %}

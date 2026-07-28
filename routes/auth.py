@@ -25,7 +25,7 @@ auth_bp = Blueprint("auth", __name__)
 
 
 @auth_bp.route("/register", methods=["GET", "POST"])
-@limiter.limit("3 per minute")
+@limiter.limit(lambda: current_app.config["AUTH_REGISTER_RATE_LIMIT"])
 def register():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
@@ -79,7 +79,7 @@ def register():
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
-@limiter.limit("5 per minute")
+@limiter.limit(lambda: current_app.config["AUTH_LOGIN_RATE_LIMIT"])
 def login():
     if request.method == "POST":
         email = normalize_email(request.form.get("email"))
@@ -107,7 +107,7 @@ def login():
 
 
 @auth_bp.route("/forgot-password", methods=["GET", "POST"])
-@limiter.limit("5 per minute")
+@limiter.limit(lambda: current_app.config["AUTH_PASSWORD_RESET_RATE_LIMIT"])
 def forgot_password():
     if request.method == "POST":
         email = normalize_email(request.form.get("email"))
@@ -136,7 +136,7 @@ def forgot_password():
 
 
 @auth_bp.route("/reset-password/<token>", methods=["GET", "POST"])
-@limiter.limit("5 per minute")
+@limiter.limit(lambda: current_app.config["AUTH_PASSWORD_RESET_RATE_LIMIT"])
 def reset_password(token):
     user = User.query.filter_by(password_reset_token_hash=hash_token(token)).first()
     if not user:

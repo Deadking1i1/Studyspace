@@ -14,8 +14,6 @@ hub_bp = Blueprint("hub", __name__)
 def hub():
     user_id = current_user_id()
     pdf_url = None
-    spotify_connected = False
-    current_track = None
 
     if request.method == "POST":
         form_type = request.form.get("form_type")
@@ -70,10 +68,6 @@ def hub():
                 flash("Write something before saving a document.", "error")
             return redirect(url_for("hub.hub"))
 
-        if form_type == "connect_spotify":
-            current_track = sanitize_plain(request.form.get("spotify_track"))
-            spotify_connected = bool(current_track)
-
         if form_type == "load_pdf":
             submitted_url = (request.form.get("pdf_url") or "").strip()
             if is_safe_pdf_url(submitted_url):
@@ -88,6 +82,4 @@ def hub():
         notes=notes,
         events=events,
         pdf_url=pdf_url,
-        spotify_connected=spotify_connected,
-        current_track=current_track,
     )

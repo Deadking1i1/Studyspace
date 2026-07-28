@@ -23,6 +23,8 @@ Thumbs.db
 
 # Uploads and generated files
 static/uploads/
+storage/
+migration-data/
 *.sqlite3
 *.sqlite
 *.db-journal
@@ -41,3 +43,17 @@ htmlcov/
 
 # IDE files
 .vscode/
+*.code-workspace
+
+# Node / TypeScript app
+node_modules/
+.next/
+.next-study-space/
+.next-study-space-stale-*/
+dist/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

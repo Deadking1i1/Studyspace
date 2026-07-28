@@ -1,6 +1,7 @@
 import os
 
-from flask import Flask, redirect, session, url_for
+from flask import Flask, redirect, render_template, session, url_for
+from flask_limiter.errors import RateLimitExceeded
 from flask_talisman import Talisman
 
 from config import Config
@@ -20,6 +21,7 @@ def create_app(config_object=Config):
     csrf.init_app(app)
     limiter.init_app(app)
     configure_security_headers(app)
+    register_error_handlers(app)
     register_blueprints(app)
     register_context_processors(app)
     register_root_route(app)
@@ -34,10 +36,11 @@ def configure_security_headers(app):
         app,
         content_security_policy={
             "default-src": "'self'",
-            "script-src": "'self'",
+            "script-src": "'self' https://sdk.scdn.co",
             "style-src": "'self'",
-            "img-src": "'self' data:",
-            "connect-src": "'self'",
+            "img-src": "'self' data: https://i.scdn.co https://mosaic.scdn.co",
+            "connect-src": "'self' https://api.spotify.com https://accounts.spotify.com https://*.spotify.com wss://*.spotify.com",
+            "media-src": "'self' blob: https://*.spotify.com",
             "frame-src": " ".join(frame_sources),
             "object-src": "'none'",
             "base-uri": "'self'",
@@ -55,6 +58,12 @@ def compare_column_types(context, inspected_column, metadata_column, inspected_t
         if sqlite_text_type and metadata_date_type:
             return False
     return None
+
+
+def register_error_handlers(app):
+    @app.errorhandler(RateLimitExceeded)
+    def rate_limit_exceeded(error):
+        return render_template("429.html", limit=getattr(error, "description", None)), 429
 
 
 def register_context_processors(app):
@@ -102,5 +111,5 @@ app = create_app()
 if __name__ == "__main__":
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", 5000))
-    debug = os.getenv("FLASK_DEBUG", "0") == "1"
+    debug = app.config["DEBUG"]
     app.run(host=host, port=port, debug=debug)

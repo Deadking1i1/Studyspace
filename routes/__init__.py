@@ -6,6 +6,7 @@ from .feed import feed_bp
 from .flashcards import flashcards_bp
 from .groups import groups_bp
 from .hub import hub_bp
+from .integrations import integrations_bp
 from .notes import notes_bp
 from .notifications import notifications_bp
 from .profile import profile_bp
@@ -18,6 +19,7 @@ def register_blueprints(app):
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(hub_bp)
+    app.register_blueprint(integrations_bp)
     app.register_blueprint(notes_bp)
     app.register_blueprint(tasks_bp)
     app.register_blueprint(flashcards_bp)

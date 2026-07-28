@@ -65,6 +65,27 @@ class SecurityFlowTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             UnsafeProductionConfig.validate()
 
+    def test_production_config_rejects_placeholder_secret(self):
+        class PlaceholderProductionConfig(Config):
+            IS_PRODUCTION = True
+            SECRET_KEY = "replace-with-a-secure-random-string"
+            RATELIMIT_STORAGE_URI = "redis://localhost:6379/0"
+
+        with self.assertRaises(RuntimeError):
+            PlaceholderProductionConfig.validate()
+
+    def test_future_integration_config_defaults_are_present(self):
+        self.assertEqual(Config.OPENAI_MODEL, "gpt-4.1-mini")
+        self.assertEqual(Config.STORAGE_BACKEND, "local")
+        self.assertIn("https://www.googleapis.com/auth/calendar.events", Config.GOOGLE_OAUTH_SCOPES)
+        self.assertTrue(hasattr(Config, "OPENAI_API_KEY"))
+        self.assertTrue(hasattr(Config, "SPOTIFY_CLIENT_ID"))
+        self.assertTrue(hasattr(Config, "SPOTIFY_CLIENT_SECRET"))
+        self.assertTrue(hasattr(Config, "GOOGLE_CLIENT_ID"))
+        self.assertTrue(hasattr(Config, "GOOGLE_CLIENT_SECRET"))
+        self.assertTrue(hasattr(Config, "STORAGE_ACCESS_KEY_ID"))
+        self.assertTrue(hasattr(Config, "STORAGE_SECRET_ACCESS_KEY"))
+
     def test_register_login_logout_flow(self):
         response = self.client.post(
             "/register",

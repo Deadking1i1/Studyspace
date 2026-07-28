@@ -6,8 +6,10 @@
 - Set `FLASK_DEBUG=0`.
 - Set a unique `SECRET_KEY` with at least 32 characters.
 - Set `RATELIMIT_STORAGE_URI` to shared storage such as Redis.
+- Keep authentication rate limits conservative in production, especially registration, login, password reset, and email-change flows.
 - Set `APP_BASE_URL` to the public HTTPS app URL before sending email links.
 - Configure SMTP with `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_USE_TLS`, and `MAIL_DEFAULT_SENDER`.
+- Keep future integration secrets such as `OPENAI_API_KEY`, `SPOTIFY_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `STORAGE_ACCESS_KEY_ID`, and `STORAGE_SECRET_ACCESS_KEY` in environment variables only.
 - Serve over HTTPS so secure cookies and HSTS can be enabled safely.
 - Keep real `.env` files out of source control.
 
@@ -24,6 +26,7 @@
 - Logout is POST-only for session clearing. GET `/logout` redirects without clearing the session.
 - Account deletion requires POST, CSRF protection, current password, and typed confirmation.
 - Account deletion transfers groups created by the deleted user to another member when possible. Groups with no remaining members are removed.
+- Local development may use relaxed account route rate limits for testing; production should keep strict values and Redis-backed shared storage.
 
 ## User Data
 
@@ -51,6 +54,16 @@
 - Flask-Talisman configures security headers.
 - CSP currently allows local scripts/styles/images and approved PDF frame sources.
 - Avoid adding inline scripts/styles unless there is a clear reason and CSP is updated deliberately.
+
+## Integrations
+
+- OpenAI, Google OAuth, and cloud storage configuration is present but optional.
+- Spotify OAuth and Web Playback SDK support is implemented for browser-session use.
+- Spotify playback controls require Spotify Premium.
+- The current Spotify implementation stores access tokens server-side in process memory and does not persist refresh tokens. Add encrypted database or managed secret storage and refresh handling before production use.
+- Do not enable an integration until its callback routes, scopes, token storage, data retention, user consent, provider terms, and tests are implemented.
+- Store OAuth refresh tokens and cloud credentials encrypted or in a managed secret store when those features are added.
+- Use least-privilege scopes for Google and Spotify integrations.
 
 ## Remaining Risks
 

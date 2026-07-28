@@ -51,6 +51,7 @@ waitress-serve --listen=0.0.0.0:$PORT wsgi:app
   - `SECRET_KEY` for Flask secret key (required; production requires at least 32 characters and cannot use the development fallback)
   - `DATABASE_URL` for a custom database file path (optional)
   - `RATELIMIT_STORAGE_URI` for Flask-Limiter storage, for example Redis in production
+  - `AUTH_REGISTER_RATE_LIMIT`, `AUTH_LOGIN_RATE_LIMIT`, `AUTH_PASSWORD_RESET_RATE_LIMIT` for account route throttling
   - `PDF_ALLOWED_DOMAINS` as a comma-separated allowlist for embedded PDF URLs
   - `SESSION_COOKIE_SECURE=1` when running behind HTTPS in production
   - `PORT` for the listen port
@@ -58,6 +59,10 @@ waitress-serve --listen=0.0.0.0:$PORT wsgi:app
   - `FLASK_ENV=development` for local development if you want relaxed session cookie handling
   - `APP_BASE_URL` for absolute email links
   - `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_USE_TLS`, `MAIL_DEFAULT_SENDER` for SMTP email delivery
+  - `OPENAI_API_KEY`, `OPENAI_MODEL` for future AI assistant features
+  - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI` for Spotify OAuth and Web Playback SDK integration
+  - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_OAUTH_SCOPES` for future Google OAuth, Calendar and Drive integration
+  - `STORAGE_BACKEND`, `STORAGE_BUCKET`, `STORAGE_REGION`, `STORAGE_ENDPOINT_URL`, `STORAGE_ACCESS_KEY_ID`, `STORAGE_SECRET_ACCESS_KEY`, `STORAGE_PUBLIC_BASE_URL` for future S3/R2-compatible upload storage
 
 > For local development, create a `.env` file from `.env.example` or export `SECRET_KEY` before starting the app.
 
@@ -98,6 +103,9 @@ DATABASE_URL=database.db
 FLASK_DEBUG=1
 FLASK_ENV=development
 RATELIMIT_STORAGE_URI=memory://
+AUTH_REGISTER_RATE_LIMIT=30 per minute
+AUTH_LOGIN_RATE_LIMIT=30 per minute
+AUTH_PASSWORD_RESET_RATE_LIMIT=20 per minute
 PDF_ALLOWED_DOMAINS=
 APP_BASE_URL=http://127.0.0.1:5000
 MAIL_SERVER=
@@ -106,7 +114,53 @@ MAIL_USERNAME=
 MAIL_PASSWORD=
 MAIL_USE_TLS=1
 MAIL_DEFAULT_SENDER=
+
+# Future AI assistant integration
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4.1-mini
+
+# Spotify integration
+# Flask local redirect: http://127.0.0.1:5000/integrations/spotify/callback
+# Next local redirect: http://127.0.0.1:3000/integrations/spotify/callback
+SPOTIFY_CLIENT_ID=
+SPOTIFY_CLIENT_SECRET=
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/integrations/spotify/callback
+
+# Future Google OAuth / Calendar / Drive integration
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=http://127.0.0.1:5000/integrations/google/callback
+GOOGLE_OAUTH_SCOPES=openid,email,profile,https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/drive.file
+
+# Future cloud upload storage. Use STORAGE_BACKEND=local until this is implemented.
+STORAGE_BACKEND=local
+STORAGE_BUCKET=
+STORAGE_REGION=
+STORAGE_ENDPOINT_URL=
+STORAGE_ACCESS_KEY_ID=
+STORAGE_SECRET_ACCESS_KEY=
+STORAGE_PUBLIC_BASE_URL=
 ```
+
+### Future integration configuration
+
+The app already reads optional settings for future OpenAI, Google OAuth and S3/R2-compatible storage integrations. These values are not required for the current local app and should stay blank until the matching feature is implemented.
+
+Spotify OAuth and Web Playback SDK support is available at `/integrations/spotify`. For Flask local development, add this redirect URI in the Spotify Developer Dashboard:
+
+```text
+http://127.0.0.1:5000/integrations/spotify/callback
+```
+
+For the Next/React migration stack, add this redirect URI instead:
+
+```text
+http://127.0.0.1:3000/integrations/spotify/callback
+```
+
+Spotify playback controls require a Spotify Premium account. The Flask implementation stores Spotify access tokens server-side in the current Python process. The Next/React migration stack stores Spotify tokens in PostgreSQL through `integration_tokens` with encrypted token values and refresh-token support.
+
+Do not commit real API keys to the repository. Put real secrets in `.env` locally or in the hosting provider's encrypted environment variables.
 
 ### Security configuration
 
@@ -114,6 +168,8 @@ Production mode is enabled with `FLASK_ENV=production`. In production, the app r
 
 - `SECRET_KEY` is set to a non-default value of at least 32 characters.
 - `RATELIMIT_STORAGE_URI` is not `memory://`.
+
+Authentication rate limits default to stricter production values and friendlier local development values. For local testing, the example uses `AUTH_REGISTER_RATE_LIMIT=30 per minute`. For production, keep conservative values such as `3 per minute` for registration and `5 per minute` for login/password reset unless monitoring proves another threshold is safer.
 
 Recommended production examples:
 
@@ -150,6 +206,30 @@ The migration `a2d4e6f8b0c1_user_profile_settings` backfills existing users from
 The migration `c4d6e8f0a1b3_normalize_user_emails` lowercases and trims existing user emails. If existing accounts only differ by casing/spacing, the earliest account keeps the normalized address and later conflicts receive a deterministic `+user{id}` suffix before the email domain so no account is deleted.
 
 Later cleanup migrations add email verification, password reset, and email-change foundations. Run `python -m flask db current` after upgrading to verify the deployed database is at `f7a9b1c3d5e6_email_change_foundation` or a later migration.
+
+### TypeScript migration stack
+
+The new Next/React/Drizzle stack is being built in parallel with Flask. Keep Flask on `DATABASE_URL` and point the TypeScript app at PostgreSQL with `STUDY_SPACE_DATABASE_URL`.
+
+Required Next migration configuration:
+
+- `STUDY_SPACE_DATABASE_URL`: PostgreSQL connection string for Drizzle.
+- `STUDY_SPACE_APP_BASE_URL`: Next app base URL, for local development usually `http://127.0.0.1:3000`.
+- `AUTH_SECRET`: strong random secret, at least 32 characters. Production builds/runtimes must not use the development placeholder.
+
+Useful migration commands:
+
+- `npm run db:generate`
+- `npm run db:check`
+- `npm run data:export-flask`
+- `npm run data:import-postgres`
+- `npm run typecheck`
+- `npm test`
+- `npm run build`
+
+The `migration-data/` directory is intentionally ignored because exports may contain real local account data.
+
+The TypeScript auth migration stores sessions in `user_sessions` and rate-limit counters in `auth_rate_limits`. Run Drizzle migrations before attempting login/register flows in the Next app.
 
 Users can download their account data from `/settings/export`. The export is JSON and includes authentication identity, profile/settings, notes, tasks, events, study sessions, flashcards, achievements, notifications and user-owned community records.
 

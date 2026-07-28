@@ -375,8 +375,8 @@ def allowed_file(filename):
 
 def password_strength_errors(password):
     errors = []
-    if len(password or "") < 12:
-        errors.append("Password must be at least 12 characters long.")
+    if len(password or "") < 8:
+        errors.append("Password must be at least 8 characters long.")
     if not re.search(r"[A-Z]", password or ""):
         errors.append("Password must include an uppercase letter.")
     if not re.search(r"[a-z]", password or ""):

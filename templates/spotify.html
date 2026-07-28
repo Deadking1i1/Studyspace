@@ -1,0 +1,85 @@
+{% extends 'layout.html' %}
+
+{% block page_title %}Spotify{% endblock %}
+{% block page_subtitle %}Connect your Spotify account and control focus music inside Study Space.{% endblock %}
+
+{% block content %}
+
+<section class="module-card spotify-player-card">
+    <div class="module-header">
+        <div>
+            <h3>Spotify Playback</h3>
+            <p class="module-summary">Use a Spotify Premium account to stream through the browser player.</p>
+        </div>
+        {% if spotify_connected %}
+            <span class="spotify-status">Connected{% if spotify_profile %}: {{ spotify_profile.display_name or spotify_profile.id }}{% endif %}</span>
+        {% else %}
+            <span class="spotify-status spotify-status-muted">Not connected</span>
+        {% endif %}
+    </div>
+
+    {% if not spotify_configured %}
+        <div class="empty-state">Spotify credentials are not configured yet. Add them to your local .env file, then restart the app.</div>
+    {% elif not spotify_connected %}
+        <div class="spotify-connect-panel">
+            <p>Connect Spotify to create a Study Space browser playback device.</p>
+            <a class="action-card" href="{{ url_for('integrations.spotify_connect') }}">Connect Spotify</a>
+        </div>
+    {% else %}
+        <div class="spotify-player-shell" data-spotify-player>
+            <div class="spotify-now-playing">
+                <div class="spotify-cover" data-spotify-cover>
+                    <span>SS</span>
+                    <img src="" alt="" data-spotify-cover-img hidden>
+                </div>
+                <div>
+                    <p class="eyebrow">Now Playing</p>
+                    <h3 data-spotify-track>Waiting for Spotify...</h3>
+                    <p class="module-summary" data-spotify-artist>Open Spotify on another device or transfer playback here.</p>
+                </div>
+            </div>
+
+            <div class="spotify-controls" aria-label="Spotify playback controls">
+                <button type="button" data-spotify-action="previous">Previous</button>
+                <button type="button" data-spotify-action="toggle">Play / Pause</button>
+                <button type="button" data-spotify-action="next">Next</button>
+            </div>
+
+            <div class="spotify-device-row">
+                <span class="status" data-spotify-device>Creating browser player...</span>
+                <button type="button" data-spotify-action="transfer">Use this browser</button>
+            </div>
+
+            <p class="status-note" data-spotify-message>
+                Keep Spotify open in this browser tab while studying. Playback controls require Spotify Premium.
+            </p>
+        </div>
+
+        <form method="POST" action="{{ url_for('integrations.spotify_disconnect') }}" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="button-link danger-link">Disconnect Spotify</button>
+        </form>
+    {% endif %}
+</section>
+
+<section class="module-card">
+    <div class="module-header">
+        <h3>Requested Spotify Permissions</h3>
+        <span class="module-summary">Used only for the in-app player.</span>
+    </div>
+    <div class="note-badges">
+        {% for scope in spotify_scopes %}
+            <span class="mini-badge">{{ scope }}</span>
+        {% endfor %}
+    </div>
+    <p class="status-note">This first pass stores the Spotify access token only in the current browser session. Reconnect when it expires.</p>
+</section>
+
+{% endblock %}
+
+{% block page_scripts %}
+{% if spotify_connected %}
+<script src="https://sdk.scdn.co/spotify-player.js"></script>
+<script src="{{ url_for('static', filename='JS/spotify.js') }}"></script>
+{% endif %}
+{% endblock %}

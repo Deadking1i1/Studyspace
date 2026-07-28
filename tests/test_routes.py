@@ -33,6 +33,7 @@ class RouteSmokeTests(unittest.TestCase):
             "/feed": 200,
             "/profile": 200,
             "/profile/edit": 200,
+            "/integrations/spotify": 200,
             "/settings": 200,
             "/settings/security-history": 200,
             "/notifications": 200,

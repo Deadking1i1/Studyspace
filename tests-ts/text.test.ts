@@ -1,0 +1,23 @@
+import { describe, expect, it } from "vitest";
+import { parseIsoDate, sanitizePlain, summarizeText } from "@/lib/text";
+
+describe("text helpers", () => {
+  it("sanitizes plain input for note and task forms", () => {
+    expect(sanitizePlain("  <b>Read</b>   chapter 4  ")).toBe("Read chapter 4");
+  });
+
+  it("keeps valid ISO dates and rejects invalid task dates", () => {
+    expect(parseIsoDate("2026-07-23")).toBe("2026-07-23");
+    expect(parseIsoDate("23/07/2026")).toBeNull();
+    expect(parseIsoDate("")).toBeNull();
+  });
+
+  it("summarizes long notes deterministically", () => {
+    const summary = summarizeText(
+      "This is the first meaningful sentence for the study note. This is the second meaningful sentence for the summary. This third sentence should not be included.",
+    );
+    expect(summary).toContain("first meaningful sentence");
+    expect(summary).toContain("second meaningful sentence");
+    expect(summary).not.toContain("third sentence");
+  });
+});
