@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { requestPasswordResetAction } from "@/lib/auth/actions";
 import { getCsrfToken } from "@/lib/auth/csrf";
 
@@ -11,22 +12,22 @@ export default async function ForgotPasswordPage({
   const csrfToken = await getCsrfToken();
 
   return (
-    <main className="main" style={{ maxWidth: 820 }}>
-      <section className="card" style={{ marginTop: 64 }}>
-        <p className="eyebrow">Account recovery</p>
-        <h1>Reset password</h1>
+    <AuthShell
+      description="Enter your account email and we will prepare a secure recovery link."
+      eyebrow="Account recovery"
+      title="Reset your password"
+    >
         {error ? <p className="notice error">{error}</p> : null}
         {success ? <p className="notice success">{success}</p> : null}
-        <form action={requestPasswordResetAction} className="grid" style={{ marginTop: 24 }}>
+        <form action={requestPasswordResetAction} className="auth-form">
           <input name="csrf_token" type="hidden" value={csrfToken} />
-          <label className="grid">
+          <label>
             <span>Email</span>
-            <input autoComplete="email" name="email" required type="email" />
+            <input autoComplete="email" name="email" placeholder="you@example.com" required type="email" />
           </label>
-          <button className="button" type="submit">Prepare reset link</button>
-          <Link className="muted" href="/login">Back to sign in</Link>
+          <button className="button auth-submit" type="submit">Prepare reset link</button>
+          <p className="auth-switch"><Link href="/login">Back to sign in</Link></p>
         </form>
-      </section>
-    </main>
+    </AuthShell>
   );
 }

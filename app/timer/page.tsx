@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { studySessions } from "@/db/schema";
 import { getCsrfToken } from "@/lib/auth/csrf";
 import { currentUser } from "@/lib/auth/session";
+import { getAcademicOptions } from "@/lib/features/academic";
 import { getStudySessionStats, recentStudySessionPredicate, saveStudySessionAction, studySessionOrder } from "@/lib/features/study-sessions";
 
 export default async function TimerPage({
@@ -16,6 +17,7 @@ export default async function TimerPage({
   const error = typeof params.error === "string" ? params.error : "";
   const success = typeof params.success === "string" ? params.success : "";
   const csrfToken = await getCsrfToken();
+  const academicOptions = await getAcademicOptions(user.id);
   const stats = await getStudySessionStats(user.id);
   const recentSessions = await db
     .select()
@@ -45,7 +47,7 @@ export default async function TimerPage({
       </section>
 
       <section className="workspace-grid" style={{ marginTop: 18 }}>
-        <StudyTimer csrfToken={csrfToken} saveAction={saveStudySessionAction} />
+        <StudyTimer csrfToken={csrfToken} saveAction={saveStudySessionAction} subjects={academicOptions.subjects} topics={academicOptions.topics} />
         <aside className="card">
           <h2>Recent sessions</h2>
           <div className="grid">

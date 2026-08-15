@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { studyMaterials } from "@/db/schema";
 import { getCsrfToken } from "@/lib/auth/csrf";
 import { currentUser } from "@/lib/auth/session";
+import { getAcademicOptions } from "@/lib/features/academic";
 import { deleteStudyMaterialAction, materialOrder, materialSearchPredicate, maxMaterialSizeBytes, uploadStudyMaterialAction } from "@/lib/features/materials";
 import { sanitizePlain } from "@/lib/text";
 
@@ -26,6 +27,7 @@ export default async function MaterialsPage({
   const error = typeof params.error === "string" ? params.error : "";
   const success = typeof params.success === "string" ? params.success : "";
   const csrfToken = await getCsrfToken();
+  const academicOptions = await getAcademicOptions(user.id);
   const predicate = materialSearchPredicate(user.id, query);
   const [{ total }] = await db.select({ total: count() }).from(studyMaterials).where(predicate);
   const rows = await db
@@ -61,7 +63,21 @@ export default async function MaterialsPage({
             </label>
             <label className="grid">
               <span>Subject</span>
-              <input maxLength={128} name="subject" placeholder="Biology" />
+              <select name="subject_id">
+                <option value="">General</option>
+                {academicOptions.subjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>{subject.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="grid">
+              <span>Topic</span>
+              <select name="topic_id">
+                <option value="">No topic</option>
+                {academicOptions.topics.map((topic) => (
+                  <option key={topic.id} value={topic.id}>{topic.name}</option>
+                ))}
+              </select>
             </label>
             <label className="grid">
               <span>File</span>

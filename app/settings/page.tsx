@@ -14,6 +14,7 @@ import {
 import { currentUser } from "@/lib/auth/session";
 import { ensureAccountRecords } from "@/lib/account";
 import { getCsrfToken } from "@/lib/auth/csrf";
+import { uploadProfileImageAction } from "@/lib/features/profile-images";
 
 export default async function SettingsPage({
   searchParams,
@@ -54,6 +55,17 @@ export default async function SettingsPage({
       <section className="settings-grid">
         <article className="card">
           <h2>Profile</h2>
+          <form action={uploadProfileImageAction} className="profile-image-form">
+            <input name="csrf_token" type="hidden" value={csrfToken} />
+            <div className="profile-avatar" aria-hidden="true">
+              {profile?.profilePic ? <img alt="" src="/api/profile/image" /> : (profile?.displayName || user.username).slice(0, 1).toUpperCase()}
+            </div>
+            <label className="grid">
+              <span>Profile image</span>
+              <input accept="image/png,image/jpeg,image/webp" name="profile_image" required type="file" />
+            </label>
+            <button className="button secondary" type="submit">Upload image</button>
+          </form>
           <form action={saveSettingsAction} className="grid">
             <input name="csrf_token" type="hidden" value={csrfToken} />
             <label className="grid">
@@ -102,14 +114,43 @@ export default async function SettingsPage({
               <input defaultChecked={profile?.showAcademicProfile ?? false} name="show_academic_profile" type="checkbox" />
               <span>Show academic profile publicly</span>
             </label>
-            <div className="form-grid-2">
+            <section className="appearance-panel">
+              <div>
+                <h3>Appearance</h3>
+                <p className="muted">Choose the study environment that helps you focus.</p>
+              </div>
               <label className="grid">
                 <span>Theme</span>
-                <select defaultValue={settings?.theme ?? "dark"} name="theme">
-                  <option value="dark">Dark</option>
+                <select defaultValue={settings?.theme === "dark" ? "rain" : (settings?.theme ?? "rain")} name="theme">
+                  <option value="rain">Rain focus</option>
+                  <option value="cyan">Cyan focus</option>
+                  <option value="ocean">Deep ocean</option>
+                  <option value="forest">Forest green</option>
+                  <option value="aurora">Aurora fusion</option>
+                  <option value="purple">Cosmic purple</option>
+                  <option value="light">Minimal light</option>
                   <option value="high-contrast">High contrast</option>
                 </select>
               </label>
+              <div className="theme-preview-grid" aria-label="Available Study Space themes">
+                {[
+                  ["rain", "Rain"],
+                  ["cyan", "Cyan"],
+                  ["ocean", "Ocean"],
+                  ["forest", "Forest"],
+                  ["aurora", "Aurora"],
+                  ["purple", "Purple"],
+                  ["light", "Light"],
+                  ["high-contrast", "Contrast"],
+                ].map(([theme, label]) => (
+                  <span className={`theme-preview theme-preview-${theme}`} key={theme}>
+                    <i aria-hidden="true" />
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </section>
+            <div className="form-grid-2">
               <label className="grid">
                 <span>Language</span>
                 <input defaultValue={settings?.language ?? "en"} maxLength={16} name="language" />
@@ -140,7 +181,7 @@ export default async function SettingsPage({
         </article>
 
         <aside className="grid">
-          <article className="card">
+        <article className="card" id="security-history">
             <h2>Security</h2>
             <p className="muted">Signed in as {user.email}. Email verified: {user.emailVerified ? "yes" : "no"}.</p>
             {!user.emailVerified ? (

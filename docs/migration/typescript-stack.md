@@ -109,7 +109,9 @@ The PostgreSQL rehearsal on 2026-07-23 applied `drizzle/0000_mighty_monster_bado
 
 The TypeScript stack now has implemented pages/actions for authentication, profile/settings, notes, tasks, calendar/events, study timer sessions, flashcards, notifications, achievements, groups/feed/community and Spotify. Command-level verification passes with `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm run db:check`, `npm run data:export-flask`, `npm run data:import-postgres`, `npm run data:verify-postgres`, `npm audit --audit-level=moderate` and the existing Flask unittest suite.
 
-Browser verification remains required for the latest migrated modules because the local environment blocked starting a background Next dev server during the 2026-07-28 pass. Do not mark final parity for those modules until manual/browser checks have exercised their write flows against PostgreSQL.
+The final migration verification pass on 2026-08-13 applied the academic Autopilot migration, reran the SQLite export/PostgreSQL import comparison, built all 49 Next routes, passed the TypeScript and Flask suites, and exercised registration, email verification, logout, protected-route redirects, login, notes writes, tasks writes, every migrated page route and legacy URL aliases in a real browser against PostgreSQL. The source SQLite database contained no user rows at that time, so password compatibility remained covered by implementation/tests and the earlier populated rehearsal rather than a new live source user.
+
+The Flask-to-TypeScript application migration is now considered behavior complete for the functionality present in Flask. Remaining work belongs to production hardening or new product development: production email delivery, private object storage, monitoring/backups, community safety tooling, public deployment configuration and the Personal Learning Engine.
 
 For Spotify in the TypeScript stack, use one of these redirect URIs in the Spotify developer console:
 

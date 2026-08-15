@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { registerAction } from "@/lib/auth/actions";
 import { getCsrfToken } from "@/lib/auth/csrf";
 
@@ -12,41 +13,41 @@ export default async function RegisterPage({
   const csrfToken = await getCsrfToken();
 
   return (
-    <main className="main" style={{ maxWidth: 980 }}>
-      <section className="card" style={{ marginTop: 64 }}>
-        <p className="eyebrow">Start studying</p>
-        <h1>Create account</h1>
-        <p className="muted">Use a strong password so your notes, chats and study history stay protected.</p>
+    <AuthShell
+      description="Set up your student workspace and start organizing what matters."
+      eyebrow="Start studying"
+      title="Create your account"
+    >
         {error ? <p className="notice error">{error}</p> : null}
         {success ? <p className="notice success">{success}</p> : null}
 
-        <form action={registerAction} className="grid" style={{ marginTop: 24 }}>
+        <form action={registerAction} className="auth-form">
           <input name="csrf_token" type="hidden" value={csrfToken} />
-          <label className="grid">
+          <label>
             <span>Username</span>
-            <input autoComplete="username" maxLength={128} name="username" required />
+            <input autoComplete="username" maxLength={128} name="username" placeholder="What should we call you?" required />
           </label>
-          <label className="grid">
+          <label>
             <span>Email</span>
-            <input autoComplete="email" name="email" required type="email" />
+            <input autoComplete="email" name="email" placeholder="you@example.com" required type="email" />
           </label>
-          <label className="grid">
+          <div className="auth-field-row">
+          <label>
             <span>Password</span>
-            <input autoComplete="new-password" minLength={8} name="password" required type="password" />
+            <input autoComplete="new-password" minLength={8} name="password" placeholder="At least 8 characters" required type="password" />
           </label>
-          <label className="grid">
+          <label>
             <span>Confirm password</span>
-            <input autoComplete="new-password" minLength={8} name="confirm_password" required type="password" />
+            <input autoComplete="new-password" minLength={8} name="confirm_password" placeholder="Repeat your password" required type="password" />
           </label>
-          <button className="button" type="submit">
+          </div>
+          <p className="auth-password-hint">Use 8+ characters with uppercase, lowercase, a number, and a symbol.</p>
+          <button className="button auth-submit" type="submit">
             <UserPlus size={18} aria-hidden="true" />
             Create account
           </button>
-          <div className="inline-actions">
-            <Link href="/login">Already have an account?</Link>
-          </div>
+          <p className="auth-switch">Already have an account? <Link href="/login">Sign in</Link></p>
         </form>
-      </section>
-    </main>
+    </AuthShell>
   );
 }

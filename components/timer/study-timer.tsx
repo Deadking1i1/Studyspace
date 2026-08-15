@@ -11,7 +11,14 @@ function formatSeconds(seconds: number) {
 export function StudyTimer({
   csrfToken,
   saveAction,
-}: Readonly<{ csrfToken: string; saveAction: (formData: FormData) => Promise<void> }>) {
+  subjects = [],
+  topics = [],
+}: Readonly<{
+  csrfToken: string;
+  saveAction: (formData: FormData) => Promise<void>;
+  subjects?: { id: number; name: string }[];
+  topics?: { id: number; subjectId: number; name: string }[];
+}>) {
   const [duration, setDuration] = useState(25);
   const [secondsLeft, setSecondsLeft] = useState(25 * 60);
   const [isRunning, setIsRunning] = useState(false);
@@ -85,6 +92,24 @@ export function StudyTimer({
         <form action={saveAction}>
           <input name="csrf_token" type="hidden" value={csrfToken} />
           <input name="duration_minutes" type="hidden" value={savedMinutes} />
+          {subjects.length ? (
+            <div className="timer-academic-fields">
+              <label className="grid">
+                <span>Subject studied</span>
+                <select name="subject_id">
+                  <option value="">General session</option>
+                  {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+                </select>
+              </label>
+              <label className="grid">
+                <span>Topic</span>
+                <select name="topic_id">
+                  <option value="">No topic</option>
+                  {topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.name}</option>)}
+                </select>
+              </label>
+            </div>
+          ) : null}
           <button className="button secondary" onClick={syncCompletedMinutes} type="submit">Save session</button>
         </form>
       </div>

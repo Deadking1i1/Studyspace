@@ -6,6 +6,7 @@ import { notes } from "@/db/schema";
 import { createNoteAction, editNoteAction, noteOrder, noteSearchPredicate, updateNoteStateAction } from "@/lib/features/notes";
 import { currentUser } from "@/lib/auth/session";
 import { getCsrfToken } from "@/lib/auth/csrf";
+import { getAcademicOptions } from "@/lib/features/academic";
 import { sanitizePlain, summarizeText } from "@/lib/text";
 
 const perPage = 12;
@@ -23,6 +24,7 @@ export default async function NotesPage({
   const error = typeof params.error === "string" ? params.error : "";
   const success = typeof params.success === "string" ? params.success : "";
   const csrfToken = await getCsrfToken();
+  const academicOptions = await getAcademicOptions(user.id);
   const predicate = noteSearchPredicate(user.id, query, showArchived);
   const [{ total }] = await db.select({ total: count() }).from(notes).where(predicate);
   const rows = await db
@@ -64,8 +66,24 @@ export default async function NotesPage({
             <div className="form-grid-2">
               <label className="grid">
                 <span>Subject</span>
-                <input maxLength={128} name="subject" />
+                <select name="subject_id">
+                  <option value="">General</option>
+                  {academicOptions.subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>{subject.name}</option>
+                  ))}
+                </select>
               </label>
+              <label className="grid">
+                <span>Topic</span>
+                <select name="topic_id">
+                  <option value="">No topic</option>
+                  {academicOptions.topics.map((topic) => (
+                    <option key={topic.id} value={topic.id}>{topic.name}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="form-grid-2">
               <label className="grid">
                 <span>Tags</span>
                 <input maxLength={255} name="tags" />
@@ -157,8 +175,24 @@ export default async function NotesPage({
                   <div className="form-grid-2">
                     <label className="grid">
                       <span>Subject</span>
-                      <input defaultValue={note.subject ?? ""} maxLength={128} name="subject" />
+                      <select defaultValue={note.subjectId ?? ""} name="subject_id">
+                        <option value="">General</option>
+                        {academicOptions.subjects.map((subject) => (
+                          <option key={subject.id} value={subject.id}>{subject.name}</option>
+                        ))}
+                      </select>
                     </label>
+                    <label className="grid">
+                      <span>Topic</span>
+                      <select defaultValue={note.topicId ?? ""} name="topic_id">
+                        <option value="">No topic</option>
+                        {academicOptions.topics.map((topic) => (
+                          <option key={topic.id} value={topic.id}>{topic.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="form-grid-2">
                     <label className="grid">
                       <span>Tags</span>
                       <input defaultValue={note.tags ?? ""} maxLength={255} name="tags" />

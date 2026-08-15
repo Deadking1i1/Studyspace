@@ -15,6 +15,13 @@
       "when": 1785248388787,
       "tag": "0001_parallel_excalibur",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786630000000,
+      "tag": "0002_academic_autopilot",
+      "breakpoints": true
     }
   ]
 }

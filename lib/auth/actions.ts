@@ -214,8 +214,8 @@ export async function saveSettingsAction(formData: FormData) {
   const bio = asString(formData, "bio").slice(0, 2000) || null;
   const timezone = asString(formData, "timezone").slice(0, 64) || "UTC";
   const language = asString(formData, "language").slice(0, 16) || "en";
-  let theme = asString(formData, "theme").slice(0, 32) || "dark";
-  if (!["dark", "high-contrast"].includes(theme)) theme = "dark";
+  let theme = asString(formData, "theme").slice(0, 32) || "rain";
+  if (!["rain", "cyan", "ocean", "forest", "aurora", "purple", "light", "high-contrast"].includes(theme)) theme = "rain";
   let profileVisibility = asString(formData, "profile_visibility") || "private";
   if (!["private", "classmates", "public"].includes(profileVisibility)) profileVisibility = "private";
 

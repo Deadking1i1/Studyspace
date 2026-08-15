@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { notes } from "@/db/schema";
 import { currentUser } from "@/lib/auth/session";
 import { verifyCsrfToken } from "@/lib/auth/csrf";
+import { invalidateAcademicAutopilotCache, ownedAcademicSelection } from "@/lib/features/academic";
 import { sanitizePlain } from "@/lib/text";
 
 function redirectWith(message: string, type: "error" | "success" = "success"): never {
@@ -24,20 +25,26 @@ export async function createNoteAction(formData: FormData) {
   const content = sanitizePlain(formData.get("content"));
   const subject = sanitizePlain(formData.get("subject")).slice(0, 128) || null;
   const tags = sanitizePlain(formData.get("tags")).slice(0, 255) || null;
+  const academic = await ownedAcademicSelection(user.id, formData.get("subject_id"), formData.get("topic_id"));
   if (!title || !content) redirectWith("Title and content are required.", "error");
 
   const now = new Date();
   await db.insert(notes).values({
     userId: user.id,
+    subjectId: academic.subjectId,
+    topicId: academic.topicId,
     title,
     content,
-    subject,
+    subject: academic.subjectName ?? subject,
     tags,
     isPublic: formData.get("visibility") === "public",
     createdAt: now,
     updatedAt: now,
   });
+  invalidateAcademicAutopilotCache(user.id);
   revalidatePath("/notes");
+  revalidatePath("/autopilot");
+  revalidatePath("/");
   redirectWith("Note created successfully.");
 }
 
@@ -57,7 +64,10 @@ export async function updateNoteStateAction(formData: FormData) {
 
   if (action === "delete") {
     await db.delete(notes).where(eq(notes.id, note.id));
+    invalidateAcademicAutopilotCache(user.id);
     revalidatePath("/notes");
+    revalidatePath("/autopilot");
+    revalidatePath("/");
     redirectWith("Note deleted.");
   }
 
@@ -69,7 +79,10 @@ export async function updateNoteStateAction(formData: FormData) {
   else redirectWith("Unknown note action.", "error");
 
   await db.update(notes).set(updates).where(eq(notes.id, note.id));
+  invalidateAcademicAutopilotCache(user.id);
   revalidatePath("/notes");
+  revalidatePath("/autopilot");
+  revalidatePath("/");
   redirectWith("Note updated.");
 }
 
@@ -88,18 +101,25 @@ export async function editNoteAction(formData: FormData) {
   if (!title || !content) redirectWith("Title and content are required.", "error");
   const [note] = await db.select().from(notes).where(and(eq(notes.id, noteId), eq(notes.userId, user.id))).limit(1);
   if (!note) redirectWith("Note not found.", "error");
+  const academic = await ownedAcademicSelection(user.id, formData.get("subject_id"), formData.get("topic_id"));
+  const fallbackSubject = sanitizePlain(formData.get("subject")).slice(0, 128) || null;
   await db
     .update(notes)
     .set({
       title,
       content,
-      subject: sanitizePlain(formData.get("subject")).slice(0, 128) || null,
+      subjectId: academic.subjectId,
+      topicId: academic.topicId,
+      subject: academic.subjectName ?? fallbackSubject,
       tags: sanitizePlain(formData.get("tags")).slice(0, 255) || null,
       isPublic: formData.get("visibility") === "public",
       updatedAt: new Date(),
     })
     .where(eq(notes.id, note.id));
+  invalidateAcademicAutopilotCache(user.id);
   revalidatePath("/notes");
+  revalidatePath("/autopilot");
+  revalidatePath("/");
   redirectWith("Note updated.");
 }
 

@@ -19,6 +19,7 @@ const csrfPagePrefixes = [
   "/groups",
   "/feed",
   "/integrations/spotify",
+  "/assistant",
 ];
 const protectedPagePrefixes = [
   "/settings",
@@ -36,6 +37,10 @@ const protectedPagePrefixes = [
   "/feed",
   "/spotify",
   "/integrations/spotify",
+  "/assistant",
+  "/dashboard",
+  "/hub",
+  "/notes_hub",
 ];
 const protectedApiPrefixes = ["/api/account"];
 
@@ -47,11 +52,12 @@ function csrfToken() {
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const needsDashboardAuth = pathname === "/";
   const needsPageAuth = protectedPagePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
   const needsApiAuth = protectedApiPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
   const hasSessionCookie = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
-  if ((needsPageAuth || needsApiAuth) && !hasSessionCookie) {
+  if ((needsDashboardAuth || needsPageAuth || needsApiAuth) && !hasSessionCookie) {
     if (needsApiAuth) {
       return NextResponse.json({ error: "Authentication required." }, { status: 401 });
     }
@@ -78,6 +84,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     "/login",
+    "/",
     "/register",
     "/forgot-password",
     "/reset-password/:path*",
@@ -97,6 +104,10 @@ export const config = {
     "/feed/:path*",
     "/spotify/:path*",
     "/integrations/spotify/:path*",
+    "/assistant/:path*",
+    "/dashboard/:path*",
+    "/hub/:path*",
+    "/notes_hub/:path*",
     "/api/integrations/spotify/:path*",
     "/api/account/:path*",
   ],

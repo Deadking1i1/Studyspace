@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { studyMaterials } from "@/db/schema";
 import { verifyCsrfToken } from "@/lib/auth/csrf";
 import { currentUser } from "@/lib/auth/session";
+import { invalidateAcademicAutopilotCache, ownedAcademicSelection } from "@/lib/features/academic";
 import { sanitizePlain } from "@/lib/text";
 
 export const materialsUploadDir = path.join(process.cwd(), "storage", "study-materials");
@@ -83,6 +84,7 @@ export async function uploadStudyMaterialAction(formData: FormData) {
 
   const title = sanitizePlain(formData.get("title")).slice(0, 255) || validation.originalName;
   const subject = sanitizePlain(formData.get("subject")).slice(0, 128) || null;
+  const academic = await ownedAcademicSelection(user.id, formData.get("subject_id"), formData.get("topic_id"));
   const storedFilename = `${user.id}-${randomUUID()}${validation.extension}`;
   const storagePath = path.join(materialsUploadDir, storedFilename);
 
@@ -91,8 +93,10 @@ export async function uploadStudyMaterialAction(formData: FormData) {
 
   await db.insert(studyMaterials).values({
     userId: user.id,
+    subjectId: academic.subjectId,
+    topicId: academic.topicId,
     title,
-    subject,
+    subject: academic.subjectName ?? subject,
     originalFilename: validation.originalName,
     storedFilename,
     storagePath,
@@ -101,7 +105,10 @@ export async function uploadStudyMaterialAction(formData: FormData) {
     createdAt: new Date(),
   });
 
+  invalidateAcademicAutopilotCache(user.id);
   revalidatePath("/materials");
+  revalidatePath("/autopilot");
+  revalidatePath("/");
   redirectWith("Study material uploaded.");
 }
 
@@ -121,7 +128,10 @@ export async function deleteStudyMaterialAction(formData: FormData) {
 
   await db.delete(studyMaterials).where(eq(studyMaterials.id, material.id));
   await unlink(material.storagePath).catch(() => undefined);
+  invalidateAcademicAutopilotCache(user.id);
   revalidatePath("/materials");
+  revalidatePath("/autopilot");
+  revalidatePath("/");
   redirectWith("Study material deleted.");
 }
 

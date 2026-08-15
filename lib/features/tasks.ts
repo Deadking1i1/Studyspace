@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { tasks } from "@/db/schema";
 import { verifyCsrfToken } from "@/lib/auth/csrf";
 import { currentUser } from "@/lib/auth/session";
+import { invalidateAcademicAutopilotCache, ownedAcademicSelection } from "@/lib/features/academic";
 import { parseIsoDate, sanitizePlain } from "@/lib/text";
 
 const allowedPriorities = new Set(["low", "medium", "high"]);
@@ -28,19 +29,25 @@ export async function createTaskAction(formData: FormData) {
   const dueDate = parseIsoDate(formData.get("due"));
   const requestedPriority = sanitizePlain(formData.get("priority"));
   const priority = allowedPriorities.has(requestedPriority) ? requestedPriority : "medium";
+  const academic = await ownedAcademicSelection(user.id, formData.get("subject_id"), formData.get("topic_id"));
   if (!task || !dueDate) redirectWith("Task and due date are required.", "error");
 
   await db.insert(tasks).values({
     userId: user.id,
+    subjectId: academic.subjectId,
+    topicId: academic.topicId,
     task,
-    subject,
+    subject: academic.subjectName ?? subject,
     priority,
     dueDate,
     completed: false,
     archived: false,
     createdAt: new Date(),
   });
+  invalidateAcademicAutopilotCache(user.id);
   revalidatePath("/tasks");
+  revalidatePath("/autopilot");
+  revalidatePath("/");
   redirectWith("Task added to your planner.");
 }
 
@@ -61,7 +68,10 @@ export async function updateTaskStateAction(formData: FormData) {
 
   if (action === "delete") {
     await db.delete(tasks).where(eq(tasks.id, task.id));
+    invalidateAcademicAutopilotCache(user.id);
     revalidatePath("/tasks");
+    revalidatePath("/autopilot");
+    revalidatePath("/");
     redirectWith("Task deleted.");
   }
 
@@ -75,7 +85,10 @@ export async function updateTaskStateAction(formData: FormData) {
   if (action === "restore") updates.archived = false;
 
   await db.update(tasks).set(updates).where(eq(tasks.id, task.id));
+  invalidateAcademicAutopilotCache(user.id);
   revalidatePath("/tasks");
+  revalidatePath("/autopilot");
+  revalidatePath("/");
   redirectWith(action === "complete" ? "Task marked complete." : "Task updated.");
 }
 

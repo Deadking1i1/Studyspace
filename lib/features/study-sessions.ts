@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { studySessions } from "@/db/schema";
 import { verifyCsrfToken } from "@/lib/auth/csrf";
 import { currentUser } from "@/lib/auth/session";
+import { invalidateAcademicAutopilotCache, ownedAcademicSelection } from "@/lib/features/academic";
 
 export function validateStudySessionDuration(value: FormDataEntryValue | string | null | undefined) {
   const duration = Number(value);
@@ -27,16 +28,22 @@ export async function saveStudySessionAction(formData: FormData) {
   if (!user) redirect("/login");
   const durationMinutes = validateStudySessionDuration(formData.get("duration_minutes"));
   if (!durationMinutes) redirectWith("Session duration must be between 1 and 720 minutes.", "error");
+  const academic = await ownedAcademicSelection(user.id, formData.get("subject_id"), formData.get("topic_id"));
 
   const endedAt = new Date();
   const startedAt = new Date(endedAt.getTime() - durationMinutes * 60_000);
   await db.insert(studySessions).values({
     userId: user.id,
+    subjectId: academic.subjectId,
+    topicId: academic.topicId,
     durationMinutes,
     startedAt,
     endedAt,
   });
+  invalidateAcademicAutopilotCache(user.id);
   revalidatePath("/timer");
+  revalidatePath("/autopilot");
+  revalidatePath("/");
   redirectWith("Study session saved.");
 }
 

@@ -157,11 +157,76 @@ export const securityEvents = pgTable(
   }),
 );
 
+export const academicSubjects = pgTable(
+  "academic_subjects",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 160 }).notNull(),
+    code: varchar("code", { length: 64 }),
+    color: varchar("color", { length: 32 }).notNull().default("cyan"),
+    targetMastery: integer("target_mastery").notNull().default(80),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userNameIdx: uniqueIndex("uq_academic_subjects_user_name").on(table.userId, table.name),
+    userArchivedIdx: index("ix_academic_subjects_user_archived").on(table.userId, table.archived),
+  }),
+);
+
+export const academicTopics = pgTable(
+  "academic_topics",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    subjectId: integer("subject_id").notNull().references(() => academicSubjects.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 180 }).notNull(),
+    description: text("description"),
+    masteryScore: integer("mastery_score").notNull().default(0),
+    lastStudiedAt: timestamp("last_studied_at", { withTimezone: true }),
+    nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    subjectNameIdx: uniqueIndex("uq_academic_topics_subject_name").on(table.subjectId, table.name),
+    userReviewIdx: index("ix_academic_topics_user_review").on(table.userId, table.nextReviewAt),
+    userMasteryIdx: index("ix_academic_topics_user_mastery").on(table.userId, table.masteryScore),
+  }),
+);
+
+export const academicDeadlines = pgTable(
+  "academic_deadlines",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    subjectId: integer("subject_id").references(() => academicSubjects.id, { onDelete: "set null" }),
+    topicId: integer("topic_id").references(() => academicTopics.id, { onDelete: "set null" }),
+    title: varchar("title", { length: 255 }).notNull(),
+    type: varchar("type", { length: 32 }).notNull().default("assignment"),
+    dueDate: date("due_date").notNull(),
+    estimatedMinutes: integer("estimated_minutes").notNull().default(60),
+    weight: integer("weight").notNull().default(1),
+    status: varchar("status", { length: 32 }).notNull().default("open"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userStatusDueIdx: index("ix_academic_deadlines_user_status_due").on(table.userId, table.status, table.dueDate),
+    subjectDueIdx: index("ix_academic_deadlines_subject_due").on(table.subjectId, table.dueDate),
+  }),
+);
+
 export const notes = pgTable(
   "notes",
   {
     id: serial("id").primaryKey(),
     userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    subjectId: integer("subject_id").references(() => academicSubjects.id, { onDelete: "set null" }),
+    topicId: integer("topic_id").references(() => academicTopics.id, { onDelete: "set null" }),
     title: varchar("title", { length: 255 }).notNull(),
     content: text("content").notNull(),
     subject: varchar("subject", { length: 128 }),
@@ -186,6 +251,8 @@ export const studyMaterials = pgTable(
   {
     id: serial("id").primaryKey(),
     userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    subjectId: integer("subject_id").references(() => academicSubjects.id, { onDelete: "set null" }),
+    topicId: integer("topic_id").references(() => academicTopics.id, { onDelete: "set null" }),
     title: varchar("title", { length: 255 }).notNull(),
     subject: varchar("subject", { length: 128 }),
     originalFilename: varchar("original_filename", { length: 255 }).notNull(),
@@ -206,6 +273,8 @@ export const tasks = pgTable(
   {
     id: serial("id").primaryKey(),
     userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    subjectId: integer("subject_id").references(() => academicSubjects.id, { onDelete: "set null" }),
+    topicId: integer("topic_id").references(() => academicTopics.id, { onDelete: "set null" }),
     task: text("task"),
     subject: varchar("subject", { length: 128 }),
     priority: varchar("priority", { length: 32 }).notNull().default("medium"),
@@ -240,6 +309,8 @@ export const studySessions = pgTable(
   {
     id: serial("id").primaryKey(),
     userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    subjectId: integer("subject_id").references(() => academicSubjects.id, { onDelete: "set null" }),
+    topicId: integer("topic_id").references(() => academicTopics.id, { onDelete: "set null" }),
     durationMinutes: integer("duration_minutes").notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }),
     endedAt: timestamp("ended_at", { withTimezone: true }),
@@ -254,6 +325,8 @@ export const flashcards = pgTable(
   {
     id: serial("id").primaryKey(),
     userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    subjectId: integer("subject_id").references(() => academicSubjects.id, { onDelete: "set null" }),
+    topicId: integer("topic_id").references(() => academicTopics.id, { onDelete: "set null" }),
     title: varchar("title", { length: 255 }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     isPublic: boolean("is_public").notNull().default(false),
@@ -384,6 +457,9 @@ export const userRelations = relations(users, ({ one, many }) => ({
   sessions: many(userSessions),
   integrationTokens: many(integrationTokens),
   notes: many(notes),
+  academicSubjects: many(academicSubjects),
+  academicTopics: many(academicTopics),
+  academicDeadlines: many(academicDeadlines),
   studyMaterials: many(studyMaterials),
   tasks: many(tasks),
   events: many(events),
@@ -419,10 +495,64 @@ export const userSettingsRelations = relations(userSettings, ({ one }) => ({
   }),
 }));
 
+export const academicSubjectRelations = relations(academicSubjects, ({ one, many }) => ({
+  user: one(users, {
+    fields: [academicSubjects.userId],
+    references: [users.id],
+  }),
+  topics: many(academicTopics),
+  deadlines: many(academicDeadlines),
+  notes: many(notes),
+  studyMaterials: many(studyMaterials),
+  tasks: many(tasks),
+  studySessions: many(studySessions),
+  flashcards: many(flashcards),
+}));
+
+export const academicTopicRelations = relations(academicTopics, ({ one, many }) => ({
+  user: one(users, {
+    fields: [academicTopics.userId],
+    references: [users.id],
+  }),
+  subject: one(academicSubjects, {
+    fields: [academicTopics.subjectId],
+    references: [academicSubjects.id],
+  }),
+  deadlines: many(academicDeadlines),
+  notes: many(notes),
+  studyMaterials: many(studyMaterials),
+  tasks: many(tasks),
+  studySessions: many(studySessions),
+  flashcards: many(flashcards),
+}));
+
+export const academicDeadlineRelations = relations(academicDeadlines, ({ one }) => ({
+  user: one(users, {
+    fields: [academicDeadlines.userId],
+    references: [users.id],
+  }),
+  subject: one(academicSubjects, {
+    fields: [academicDeadlines.subjectId],
+    references: [academicSubjects.id],
+  }),
+  topic: one(academicTopics, {
+    fields: [academicDeadlines.topicId],
+    references: [academicTopics.id],
+  }),
+}));
+
 export const noteRelations = relations(notes, ({ one, many }) => ({
   user: one(users, {
     fields: [notes.userId],
     references: [users.id],
+  }),
+  academicSubject: one(academicSubjects, {
+    fields: [notes.subjectId],
+    references: [academicSubjects.id],
+  }),
+  academicTopic: one(academicTopics, {
+    fields: [notes.topicId],
+    references: [academicTopics.id],
   }),
   likedBy: many(likes),
 }));
@@ -432,12 +562,28 @@ export const studyMaterialRelations = relations(studyMaterials, ({ one }) => ({
     fields: [studyMaterials.userId],
     references: [users.id],
   }),
+  academicSubject: one(academicSubjects, {
+    fields: [studyMaterials.subjectId],
+    references: [academicSubjects.id],
+  }),
+  academicTopic: one(academicTopics, {
+    fields: [studyMaterials.topicId],
+    references: [academicTopics.id],
+  }),
 }));
 
 export const taskRelations = relations(tasks, ({ one }) => ({
   user: one(users, {
     fields: [tasks.userId],
     references: [users.id],
+  }),
+  academicSubject: one(academicSubjects, {
+    fields: [tasks.subjectId],
+    references: [academicSubjects.id],
+  }),
+  academicTopic: one(academicTopics, {
+    fields: [tasks.topicId],
+    references: [academicTopics.id],
   }),
 }));
 
@@ -448,10 +594,33 @@ export const eventRelations = relations(events, ({ one }) => ({
   }),
 }));
 
+export const studySessionRelations = relations(studySessions, ({ one }) => ({
+  user: one(users, {
+    fields: [studySessions.userId],
+    references: [users.id],
+  }),
+  academicSubject: one(academicSubjects, {
+    fields: [studySessions.subjectId],
+    references: [academicSubjects.id],
+  }),
+  academicTopic: one(academicTopics, {
+    fields: [studySessions.topicId],
+    references: [academicTopics.id],
+  }),
+}));
+
 export const flashcardRelations = relations(flashcards, ({ one, many }) => ({
   user: one(users, {
     fields: [flashcards.userId],
     references: [users.id],
+  }),
+  academicSubject: one(academicSubjects, {
+    fields: [flashcards.subjectId],
+    references: [academicSubjects.id],
+  }),
+  academicTopic: one(academicTopics, {
+    fields: [flashcards.topicId],
+    references: [academicTopics.id],
   }),
   cards: many(flashcardCards),
 }));

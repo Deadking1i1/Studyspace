@@ -1,4 +1,4 @@
-import { count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { db } from "@/db";
@@ -25,7 +25,7 @@ export default async function ProfilePage() {
   const [completed] = await db
     .select({ total: count() })
     .from(tasks)
-    .where(eq(tasks.userId, user.id));
+    .where(and(eq(tasks.userId, user.id), eq(tasks.completed, true)));
   const studyHours = Math.round((Number(minutes?.total ?? 0) / 60) * 10) / 10;
 
   return (
@@ -33,7 +33,12 @@ export default async function ProfilePage() {
       <header className="page-header">
         <div>
           <p className="eyebrow">Student profile</p>
-          <h1>{profile?.displayName || user.username}</h1>
+          <div className="profile-heading">
+            <div className="profile-avatar profile-avatar-large" aria-hidden="true">
+              {profile?.profilePic ? <img alt="" src="/api/profile/image" /> : (profile?.displayName || user.username).slice(0, 1).toUpperCase()}
+            </div>
+            <h1>{profile?.displayName || user.username}</h1>
+          </div>
           <p className="muted">{profile?.course || "No course added yet"}{profile?.institution ? ` at ${profile.institution}` : ""}</p>
         </div>
         <a className="button secondary" href="/settings">Edit profile</a>

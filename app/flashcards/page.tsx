@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { flashcardCards, flashcards } from "@/db/schema";
 import { getCsrfToken } from "@/lib/auth/csrf";
 import { currentUser } from "@/lib/auth/session";
+import { getAcademicOptions } from "@/lib/features/academic";
 import { createFlashcardAction, deleteFlashcardAction, flashcardOrder, trendingFlashcardOrder } from "@/lib/features/flashcards";
 
 const perPage = 12;
@@ -19,6 +20,7 @@ export default async function FlashcardsPage({
   const error = typeof params.error === "string" ? params.error : "";
   const success = typeof params.success === "string" ? params.success : "";
   const csrfToken = await getCsrfToken();
+  const academicOptions = await getAcademicOptions(user.id);
   const [{ total }] = await db.select({ total: count() }).from(flashcards).where(eq(flashcards.userId, user.id));
   const rows = await db
     .select({
@@ -71,6 +73,26 @@ export default async function FlashcardsPage({
               <span>Title</span>
               <input maxLength={255} name="title" required />
             </label>
+            <div className="form-grid-2">
+              <label className="grid">
+                <span>Subject</span>
+                <select name="subject_id">
+                  <option value="">General</option>
+                  {academicOptions.subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>{subject.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid">
+                <span>Topic</span>
+                <select name="topic_id">
+                  <option value="">No topic</option>
+                  {academicOptions.topics.map((topic) => (
+                    <option key={topic.id} value={topic.id}>{topic.name}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <label className="grid">
               <span>Question</span>
               <textarea name="question" required rows={4} />
