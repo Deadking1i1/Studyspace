@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { normalizeTheme, themeDefinitions } from "@/lib/themes";
 
 describe("theme registry", () => {
-  it("contains the eight supported study environments", () => {
+  it("contains the six supported immersive study environments", () => {
     expect(themeDefinitions.map((theme) => theme.id)).toEqual([
       "rain",
       "cyan",
@@ -10,8 +10,6 @@ describe("theme registry", () => {
       "forest",
       "aurora",
       "purple",
-      "light",
-      "high-contrast",
     ]);
   });
 
@@ -25,6 +23,8 @@ describe("theme registry", () => {
   it("normalizes legacy and unsupported stored values safely", () => {
     expect(normalizeTheme("forest")).toBe("forest");
     expect(normalizeTheme("dark")).toBe("rain");
+    expect(normalizeTheme("light")).toBe("rain");
+    expect(normalizeTheme("high-contrast")).toBe("rain");
     expect(normalizeTheme("unknown")).toBe("rain");
     expect(normalizeTheme(null)).toBe("rain");
   });

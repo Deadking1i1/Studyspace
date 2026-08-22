@@ -5,8 +5,6 @@ export const themeDefinitions = [
   { id: "forest", name: "Forest Green", description: "Misty forest retreat", image: "/assets/themes/forest.webp", logo: "/assets/brand/forest.png", favicon: "/assets/brand/favicon-forest.png" },
   { id: "aurora", name: "Aurora Fusion", description: "Northern lights", image: "/assets/themes/aurora.webp", logo: "/assets/brand/aurora.png", favicon: "/assets/brand/favicon-aurora.png" },
   { id: "purple", name: "Cosmic Purple", description: "Deep space nebula", image: "/assets/themes/purple.webp", logo: "/assets/brand/purple.png", favicon: "/assets/brand/favicon-purple.png" },
-  { id: "light", name: "Minimal Light", description: "Bright and airy", image: "/assets/themes/light.webp", logo: "/assets/brand/light.png", favicon: "/assets/brand/favicon-light.png" },
-  { id: "high-contrast", name: "High Contrast", description: "Maximum readability", image: "/assets/themes/high-contrast.webp", logo: "/assets/brand/high-contrast.png", favicon: "/assets/brand/favicon-high-contrast.png" },
 ] as const;
 
 export type ThemeId = (typeof themeDefinitions)[number]["id"];
@@ -20,7 +18,7 @@ export type ThemeActionState = {
 const themeIds = new Set<string>(themeDefinitions.map((theme) => theme.id));
 
 export function normalizeTheme(theme?: string | null): ThemeId {
-  if (theme === "dark") return "rain";
+  if (theme === "dark" || theme === "light" || theme === "high-contrast") return "rain";
   return theme && themeIds.has(theme) ? (theme as ThemeId) : "rain";
 }
 
