@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { AppShell } from "@/components/shell/app-shell";
 import { StudyTimer } from "@/components/timer/study-timer";
 import { db } from "@/db";
@@ -48,16 +49,23 @@ export default async function TimerPage({
 
       <section className="workspace-grid" style={{ marginTop: 18 }}>
         <StudyTimer csrfToken={csrfToken} saveAction={saveStudySessionAction} subjects={academicOptions.subjects} topics={academicOptions.topics} />
-        <aside className="card">
-          <h2>Recent sessions</h2>
-          <div className="grid">
-            {recentSessions.length ? recentSessions.map((session) => (
-              <div className="item-row compact" key={session.id}>
-                <strong>{session.durationMinutes} minutes</strong>
-                <span className="muted">{session.endedAt ? session.endedAt.toLocaleString() : "Saved session"}</span>
-              </div>
-            )) : <p className="muted">No sessions saved yet.</p>}
-          </div>
+        <aside className="grid">
+          <article className="card">
+            <h2>Focus music</h2>
+            <p className="muted">Use your own Spotify library while the timer continues independently.</p>
+            <Link className="button secondary" href="/spotify">Open Spotify controls</Link>
+          </article>
+          <article className="card">
+            <h2>Recent sessions</h2>
+            <div className="grid">
+              {recentSessions.length ? recentSessions.map((session) => (
+                <div className="item-row compact" key={session.id}>
+                  <strong>{session.durationMinutes} minutes</strong>
+                  <span className="muted">{session.endedAt ? session.endedAt.toLocaleString() : "Saved session"}</span>
+                </div>
+              )) : <p className="muted">No sessions saved yet.</p>}
+            </div>
+          </article>
         </aside>
       </section>
     </AppShell>

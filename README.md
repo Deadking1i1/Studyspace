@@ -119,9 +119,9 @@ MAIL_DEFAULT_SENDER=
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4.1-mini
 
-# Spotify integration
-# Flask local redirect: http://127.0.0.1:5000/integrations/spotify/callback
-# Next local redirect: http://127.0.0.1:3000/integrations/spotify/callback
+# Spotify integration. Keep these server-side and out of source control.
+# Spotify Dashboard local redirect: http://127.0.0.1:3000/integrations/spotify/callback
+# Production callback must be an exact HTTPS URL ending in /integrations/spotify/callback.
 SPOTIFY_CLIENT_ID=
 SPOTIFY_CLIENT_SECRET=
 SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/integrations/spotify/callback
@@ -146,21 +146,25 @@ STORAGE_PUBLIC_BASE_URL=
 
 The app already reads optional settings for future OpenAI, Google OAuth and S3/R2-compatible storage integrations. These values are not required for the current local app and should stay blank until the matching feature is implemented.
 
-Spotify OAuth and Web Playback SDK support is available at `/integrations/spotify`. For Flask local development, add this redirect URI in the Spotify Developer Dashboard:
+### Spotify setup
 
-```text
-http://127.0.0.1:5000/integrations/spotify/callback
-```
-
-For the Next/React migration stack, add this redirect URI instead:
+Study Space uses Spotify Authorization Code OAuth at `/spotify`. In the Spotify Developer Dashboard, register exactly one local callback:
 
 ```text
 http://127.0.0.1:3000/integrations/spotify/callback
 ```
 
-Spotify playback controls require a Spotify Premium account. The Flask implementation stores Spotify access tokens server-side in the current Python process. The Next/React migration stack stores Spotify tokens in PostgreSQL through `integration_tokens` with encrypted token values and refresh-token support.
+For production, set `SPOTIFY_REDIRECT_URI` to the exact HTTPS callback for the deployed site. Do not use `localhost`, wildcard redirects, `NEXT_PUBLIC_` Spotify variables, or committed credentials.
 
-Do not commit real API keys to the repository. Put real secrets in `.env` locally or in the hosting provider's encrypted environment variables.
+The integration requests only the scopes used by the current study music experience:
+
+- `streaming`, `user-read-email`, `user-read-private`: Spotify Web Playback SDK browser player.
+- `user-read-playback-state`, `user-modify-playback-state`: device selection and playback controls.
+- `playlist-read-private`, `playlist-read-collaborative`: the student's own playlist library.
+
+Tokens are encrypted at rest in PostgreSQL and refresh tokens never leave the server. The short-lived access token endpoint is used only by Spotify's browser SDK for the signed-in owner and is marked `no-store`. Spotify Premium, an available device, and Spotify account/app eligibility may be required for playback.
+
+For troubleshooting, confirm the redirect URI matches character-for-character, reconnect after changing scopes, open Spotify on at least one device, and use the Refresh devices control. Spotify data is not sent to Study Space AI features.
 
 ### Security configuration
 

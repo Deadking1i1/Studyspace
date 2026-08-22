@@ -1214,6 +1214,13 @@ h1 {
   align-items: end;
 }
 
+.spotify-device-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
 .spotify-advanced-controls,
 .segmented-controls,
 .spotify-search-row {
@@ -1640,6 +1647,7 @@ h1 {
   .materials-grid,
   .tasks-grid,
   .spotify-control-grid,
+  .spotify-device-row,
   .spotify-playlist-grid,
   .spotify-search-row,
     .spotify-results-grid,
@@ -2653,6 +2661,7 @@ label span,
   .materials-grid,
   .tasks-grid,
   .spotify-control-grid,
+  .spotify-device-row,
   .spotify-playlist-grid,
   .spotify-search-row,
   .spotify-results-grid,

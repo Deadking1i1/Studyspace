@@ -19,6 +19,7 @@ const csrfPagePrefixes = [
   "/groups",
   "/feed",
   "/integrations/spotify",
+  "/spotify",
   "/assistant",
 ];
 const protectedPagePrefixes = [

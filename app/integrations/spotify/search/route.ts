@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth/session";
 import { SPOTIFY_API_BASE, spotifyRequest, spotifyTokenRecord } from "@/lib/features/spotify";
+import { connectedSpotifyTokenError, spotifyErrorResponse } from "@/lib/features/spotify-response";
 
 type SpotifyTrack = {
   id: string;
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   const token = await spotifyTokenRecord(user.id);
-  if (!token) return NextResponse.json({ error: "Spotify needs to be reconnected." }, { status: 401 });
+  if (!token) return connectedSpotifyTokenError();
 
   const query = (request.nextUrl.searchParams.get("q") || "").trim();
   if (query.length < 2) return NextResponse.json({ tracks: [], playlists: [] });
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
         image: playlist!.images?.[0]?.url || "",
       })),
     });
-  } catch {
-    return NextResponse.json({ error: "Unable to search Spotify." }, { status: 502 });
+  } catch (error) {
+    return spotifyErrorResponse(user.id, error, "Unable to search Spotify.");
   }
 }

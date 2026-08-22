@@ -1,4 +1,5 @@
 import { desc, eq } from "drizzle-orm";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { ThemePicker } from "@/components/settings/theme-picker";
@@ -154,6 +155,11 @@ export default async function SettingsPage({
         </article>
 
         <aside className="grid">
+          <article className="card">
+            <h2>Integrations</h2>
+            <p className="muted">Connect optional services that support your study environment.</p>
+            <Link className="button secondary" href="/spotify">Manage Spotify</Link>
+          </article>
         <article className="card" id="security-history">
             <h2>Security</h2>
             <p className="muted">Signed in as {user.email}. Email verified: {user.emailVerified ? "yes" : "no"}.</p>

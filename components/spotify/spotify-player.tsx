@@ -40,6 +40,15 @@ type Playlist = {
   owner: string;
 };
 
+type PlaybackDevice = {
+  active: boolean;
+  id: string;
+  name: string;
+  privateSession: boolean;
+  type: string;
+  volumePercent: number | null;
+};
+
 type SearchTrack = {
   id: string;
   name: string;
@@ -68,6 +77,10 @@ export function SpotifyPlayerShell({ csrfToken }: Readonly<{ csrfToken: string }
   const deviceIdRef = useRef<string>("");
   const [message, setMessage] = useState("Creating browser player...");
   const [device, setDevice] = useState("Browser player pending");
+  const [devices, setDevices] = useState<PlaybackDevice[]>([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [selectedDeviceId, setSelectedDeviceId] = useState("");
+  const [isPaused, setIsPaused] = useState(true);
   const [track, setTrack] = useState<TrackState>({ track: "Waiting for Spotify...", artist: "Open Spotify on another device or transfer playback here.", cover: "" });
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedPlaylistUri, setSelectedPlaylistUri] = useState("");
@@ -82,6 +95,22 @@ export function SpotifyPlayerShell({ csrfToken }: Readonly<{ csrfToken: string }
   const [searchTracks, setSearchTracks] = useState<SearchTrack[]>([]);
   const [searchPlaylists, setSearchPlaylists] = useState<Playlist[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+
+  async function loadDevices() {
+    setDevicesLoading(true);
+    try {
+      const response = await fetch("/integrations/spotify/devices", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to load Spotify devices.");
+      const loadedDevices = Array.isArray(data.devices) ? data.devices as PlaybackDevice[] : [];
+      setDevices(loadedDevices);
+      setSelectedDeviceId((current) => current || loadedDevices.find((candidate) => candidate.active)?.id || "");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to load Spotify devices.");
+    } finally {
+      setDevicesLoading(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -108,8 +137,10 @@ export function SpotifyPlayerShell({ csrfToken }: Readonly<{ csrfToken: string }
 
       player.addListener("ready", ({ device_id }: { device_id: string }) => {
         deviceIdRef.current = device_id;
+        setSelectedDeviceId((current) => current || device_id);
         setDevice("Browser player ready");
         setMessage("Spotify is ready. Transfer playback to this browser when you want in-app controls.");
+        void loadDevices();
       });
       player.addListener("not_ready", () => {
         setDevice("Browser player offline");
@@ -129,6 +160,7 @@ export function SpotifyPlayerShell({ csrfToken }: Readonly<{ csrfToken: string }
         });
         setProgressMs(Number(state.position) || 0);
         setDurationMs(Number(currentTrack.duration_ms) || 0);
+        setIsPaused(Boolean(state.paused));
       });
       void player.connect().then((connected) => {
         if (!connected) setMessage("Spotify could not create a browser player.");
@@ -170,13 +202,14 @@ export function SpotifyPlayerShell({ csrfToken }: Readonly<{ csrfToken: string }
       }
     }
     void loadPlaylists();
+    void loadDevices();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  async function transferPlayback() {
-    if (!deviceIdRef.current) {
+  async function transferPlayback(targetDeviceId = deviceIdRef.current) {
+    if (!targetDeviceId) {
       setMessage("Spotify browser device is not ready yet.");
       return;
     }
@@ -187,11 +220,12 @@ export function SpotifyPlayerShell({ csrfToken }: Readonly<{ csrfToken: string }
           "Content-Type": "application/json",
           "X-CSRFToken": csrfToken,
         },
-        body: JSON.stringify({ device_id: deviceIdRef.current }),
+        body: JSON.stringify({ device_id: targetDeviceId }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to transfer playback.");
-      setMessage("Playback transferred to Study Space.");
+      setSelectedDeviceId(targetDeviceId);
+      setMessage("Playback transferred to the selected device.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to transfer playback.");
     }
@@ -211,7 +245,7 @@ export function SpotifyPlayerShell({ csrfToken }: Readonly<{ csrfToken: string }
         },
         body: JSON.stringify({
           context_uri: playlistUri,
-          device_id: deviceIdRef.current,
+          device_id: selectedDeviceId || deviceIdRef.current,
         }),
       });
       const data = await response.json();
@@ -236,7 +270,7 @@ export function SpotifyPlayerShell({ csrfToken }: Readonly<{ csrfToken: string }
         },
         body: JSON.stringify({
           ...payload,
-          device_id: deviceIdRef.current,
+          device_id: selectedDeviceId || deviceIdRef.current,
         }),
       });
       const data = await response.json();
@@ -276,6 +310,16 @@ export function SpotifyPlayerShell({ csrfToken }: Readonly<{ csrfToken: string }
     }
   }
 
+  async function changeTrack(action: "previous" | "next") {
+    await postControl({ action }, action === "previous" ? "Previous track selected." : "Next track selected.");
+  }
+
+  async function togglePlayback() {
+    const nextPaused = !isPaused;
+    const applied = await postControl({ action: nextPaused ? "pause" : "resume" }, nextPaused ? "Playback paused." : "Playback resumed.");
+    if (applied) setIsPaused(nextPaused);
+  }
+
   async function searchSpotify() {
     const query = searchQuery.trim();
     if (query.length < 2) {
@@ -307,7 +351,7 @@ export function SpotifyPlayerShell({ csrfToken }: Readonly<{ csrfToken: string }
         },
         body: JSON.stringify({
           uris: [uri],
-          device_id: deviceIdRef.current,
+          device_id: selectedDeviceId || deviceIdRef.current,
         }),
       });
       const data = await response.json();
@@ -340,9 +384,9 @@ export function SpotifyPlayerShell({ csrfToken }: Readonly<{ csrfToken: string }
         </div>
       </div>
       <div className="inline-actions" aria-label="Spotify playback controls">
-        <button className="button secondary" onClick={() => void playerRef.current?.previousTrack()} type="button">Previous</button>
-        <button className="button" onClick={() => void playerRef.current?.togglePlay()} type="button">Play / Pause</button>
-        <button className="button secondary" onClick={() => void playerRef.current?.nextTrack()} type="button">Next</button>
+        <button className="button secondary" onClick={() => void changeTrack("previous")} type="button">Previous</button>
+        <button className="button" onClick={() => void togglePlayback()} type="button">{isPaused ? "Play" : "Pause"}</button>
+        <button className="button secondary" onClick={() => void changeTrack("next")} type="button">Next</button>
       </div>
       <div className="spotify-advanced-controls">
         <button className={`button secondary ${shuffle ? "active-control" : ""}`} onClick={() => void toggleShuffle()} type="button">
@@ -368,6 +412,25 @@ export function SpotifyPlayerShell({ csrfToken }: Readonly<{ csrfToken: string }
         />
         <span className="muted">{formatDuration(progressMs)} / {formatDuration(durationMs)}</span>
       </label>
+      <div className="spotify-device-row">
+        <label className="grid">
+          <span>Playback device</span>
+          <select disabled={devicesLoading} onChange={(event) => setSelectedDeviceId(event.target.value)} value={selectedDeviceId}>
+            <option value="">Use Spotify&apos;s active device</option>
+            {devices.map((playbackDevice) => (
+              <option key={playbackDevice.id} value={playbackDevice.id}>
+                {playbackDevice.name} ({playbackDevice.type}){playbackDevice.active ? " - active" : ""}
+              </option>
+            ))}
+            {deviceIdRef.current && !devices.some((playbackDevice) => playbackDevice.id === deviceIdRef.current) ? (
+              <option value={deviceIdRef.current}>Study Space browser player</option>
+            ) : null}
+          </select>
+        </label>
+        <button className="button secondary" disabled={devicesLoading} onClick={() => void loadDevices()} type="button">
+          {devicesLoading ? "Checking..." : "Refresh devices"}
+        </button>
+      </div>
       <div className="spotify-control-grid">
         <div className="grid">
           <span className="form-label">Selected playlist</span>
