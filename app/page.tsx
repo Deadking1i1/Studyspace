@@ -3,7 +3,7 @@ import { BookOpen, CalendarDays, CheckCircle2, Clock3, FileText, Flame, Headphon
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { db } from "@/db";
-import { achievements, events, notes, studyMaterials, studySessions, tasks, userSettings } from "@/db/schema";
+import { achievements, events, notes, studyMaterials, studySessions, tasks, userProfiles, userSettings } from "@/db/schema";
 import { currentUser } from "@/lib/auth/session";
 import { getAcademicAutopilot } from "@/lib/features/academic";
 import { normalizeTheme, themeDefinitions } from "@/lib/themes";
@@ -38,6 +38,7 @@ export default async function DashboardPage({
     materialCount,
     autopilot,
     environmentSettings,
+    profileRows,
   ] = await Promise.all([
     db
       .select()
@@ -77,6 +78,7 @@ export default async function DashboardPage({
     db.select({ total: count() }).from(studyMaterials).where(eq(studyMaterials.userId, user.id)),
     getAcademicAutopilot(user.id),
     db.select({ theme: userSettings.theme }).from(userSettings).where(eq(userSettings.userId, user.id)).limit(1),
+    db.select({ displayName: userProfiles.displayName }).from(userProfiles).where(eq(userProfiles.userId, user.id)).limit(1),
   ]);
 
   const completed = completedTaskCount[0]?.total ?? 0;
@@ -86,13 +88,14 @@ export default async function DashboardPage({
   const totalMinutes = Number(studyStats[0]?.minutes ?? 0);
   const totalHours = Math.round((totalMinutes / 60) * 10) / 10;
   const activeTheme = themeDefinitions.find((theme) => theme.id === normalizeTheme(environmentSettings[0]?.theme));
+  const displayName = profileRows[0]?.displayName?.trim() || user.username;
 
   return (
     <AppShell>
       <header className="dashboard-hero">
         <div>
           <p className="eyebrow">Student command center</p>
-          <h1>Good evening, {user.username}</h1>
+          <h1>Good evening, {displayName}</h1>
           <p className="muted">One clear place for today&apos;s work, focus, and progress.</p>
         </div>
         <div className="focus-weather">
