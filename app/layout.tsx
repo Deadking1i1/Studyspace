@@ -5,6 +5,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Study Space",
   description: "A modern all-in-one workspace for students.",
+  icons: {
+    icon: "/assets/brand/favicon-rain.png",
+  },
 };
 
 export const viewport: Viewport = {

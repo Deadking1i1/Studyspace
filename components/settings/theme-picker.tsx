@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState, type CSSProperties } from "react";
 import { Check, LoaderCircle } from "lucide-react";
 import { themeDefinitions, type ThemeActionState, type ThemeId } from "@/lib/themes";
+import { applyThemeBrand } from "@/lib/client/theme-brand";
 
 type ThemePickerProps = {
   action: (previousState: ThemeActionState, formData: FormData) => Promise<ThemeActionState>;
@@ -26,6 +27,7 @@ export function ThemePicker({ action, csrfToken, initialTheme }: ThemePickerProp
   function applyPreview(theme: ThemeId) {
     setPreviewTheme(theme);
     document.querySelector<HTMLElement>(".app-shell")?.setAttribute("data-theme", theme);
+    applyThemeBrand(theme);
     const profileTheme = document.querySelector<HTMLInputElement>('input[data-profile-theme="true"]');
     if (profileTheme) profileTheme.value = theme;
   }
