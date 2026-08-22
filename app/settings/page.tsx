@@ -1,6 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { ThemePicker } from "@/components/settings/theme-picker";
 import { db } from "@/db";
 import { securityEvents, userProfiles, userSettings } from "@/db/schema";
 import {
@@ -10,11 +11,13 @@ import {
   requestEmailChangeAction,
   resendVerificationAction,
   saveSettingsAction,
+  saveThemeAction,
 } from "@/lib/auth/actions";
 import { currentUser } from "@/lib/auth/session";
 import { ensureAccountRecords } from "@/lib/account";
 import { getCsrfToken } from "@/lib/auth/csrf";
 import { uploadProfileImageAction } from "@/lib/features/profile-images";
+import { normalizeTheme } from "@/lib/themes";
 
 export default async function SettingsPage({
   searchParams,
@@ -66,8 +69,14 @@ export default async function SettingsPage({
             </label>
             <button className="button secondary" type="submit">Upload image</button>
           </form>
+          <ThemePicker
+            action={saveThemeAction}
+            csrfToken={csrfToken}
+            initialTheme={normalizeTheme(settings?.theme)}
+          />
           <form action={saveSettingsAction} className="grid">
             <input name="csrf_token" type="hidden" value={csrfToken} />
+            <input data-profile-theme="true" name="theme" type="hidden" value={normalizeTheme(settings?.theme)} />
             <label className="grid">
               <span>Display name</span>
               <input defaultValue={profile?.displayName ?? user.username} maxLength={128} name="display_name" />
@@ -114,42 +123,6 @@ export default async function SettingsPage({
               <input defaultChecked={profile?.showAcademicProfile ?? false} name="show_academic_profile" type="checkbox" />
               <span>Show academic profile publicly</span>
             </label>
-            <section className="appearance-panel">
-              <div>
-                <h3>Appearance</h3>
-                <p className="muted">Choose the study environment that helps you focus.</p>
-              </div>
-              <label className="grid">
-                <span>Theme</span>
-                <select defaultValue={settings?.theme === "dark" ? "rain" : (settings?.theme ?? "rain")} name="theme">
-                  <option value="rain">Rain focus</option>
-                  <option value="cyan">Cyan focus</option>
-                  <option value="ocean">Deep ocean</option>
-                  <option value="forest">Forest green</option>
-                  <option value="aurora">Aurora fusion</option>
-                  <option value="purple">Cosmic purple</option>
-                  <option value="light">Minimal light</option>
-                  <option value="high-contrast">High contrast</option>
-                </select>
-              </label>
-              <div className="theme-preview-grid" aria-label="Available Study Space themes">
-                {[
-                  ["rain", "Rain"],
-                  ["cyan", "Cyan"],
-                  ["ocean", "Ocean"],
-                  ["forest", "Forest"],
-                  ["aurora", "Aurora"],
-                  ["purple", "Purple"],
-                  ["light", "Light"],
-                  ["high-contrast", "Contrast"],
-                ].map(([theme, label]) => (
-                  <span className={`theme-preview theme-preview-${theme}`} key={theme}>
-                    <i aria-hidden="true" />
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </section>
             <div className="form-grid-2">
               <label className="grid">
                 <span>Language</span>

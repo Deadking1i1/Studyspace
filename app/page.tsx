@@ -3,9 +3,10 @@ import { BookOpen, CalendarDays, CheckCircle2, Clock3, FileText, Flame, Headphon
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { db } from "@/db";
-import { achievements, events, notes, studyMaterials, studySessions, tasks } from "@/db/schema";
+import { achievements, events, notes, studyMaterials, studySessions, tasks, userSettings } from "@/db/schema";
 import { currentUser } from "@/lib/auth/session";
 import { getAcademicAutopilot } from "@/lib/features/academic";
+import { normalizeTheme, themeDefinitions } from "@/lib/themes";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -36,6 +37,7 @@ export default async function DashboardPage({
     studyStats,
     materialCount,
     autopilot,
+    environmentSettings,
   ] = await Promise.all([
     db
       .select()
@@ -74,6 +76,7 @@ export default async function DashboardPage({
       .where(eq(studySessions.userId, user.id)),
     db.select({ total: count() }).from(studyMaterials).where(eq(studyMaterials.userId, user.id)),
     getAcademicAutopilot(user.id),
+    db.select({ theme: userSettings.theme }).from(userSettings).where(eq(userSettings.userId, user.id)).limit(1),
   ]);
 
   const completed = completedTaskCount[0]?.total ?? 0;
@@ -82,6 +85,7 @@ export default async function DashboardPage({
   const completion = totalVisibleTasks ? Math.round((completed / totalVisibleTasks) * 100) : 0;
   const totalMinutes = Number(studyStats[0]?.minutes ?? 0);
   const totalHours = Math.round((totalMinutes / 60) * 10) / 10;
+  const activeTheme = themeDefinitions.find((theme) => theme.id === normalizeTheme(environmentSettings[0]?.theme));
 
   return (
     <AppShell>
@@ -92,7 +96,7 @@ export default async function DashboardPage({
           <p className="muted">One clear place for today&apos;s work, focus, and progress.</p>
         </div>
         <div className="focus-weather">
-          <span>Rain Focus</span>
+          <span>{activeTheme?.name ?? "Rain Focus"}</span>
           <strong>Deep work</strong>
         </div>
       </header>

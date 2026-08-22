@@ -14,6 +14,7 @@ import { addHours, createToken, hashToken } from "@/lib/auth/tokens";
 import { createSession, currentUser, destroySession } from "@/lib/auth/session";
 import { hashPassword, passwordStrengthErrors, verifyPassword } from "@/lib/auth/password";
 import { logSecurityEvent } from "@/lib/auth/security-events";
+import { normalizeTheme, type ThemeActionState } from "@/lib/themes";
 
 function asString(formData: FormData, key: string) {
   return String(formData.get(key) || "").trim();
@@ -253,6 +254,31 @@ export async function saveSettingsAction(formData: FormData) {
   await logSecurityEvent(user.id, "settings.updated", {});
   revalidatePath("/settings");
   redirectWith("/settings", "success", "Settings saved.");
+}
+
+export async function saveThemeAction(
+  previousState: ThemeActionState,
+  formData: FormData,
+): Promise<ThemeActionState> {
+  await requireCsrf(formData, "/settings");
+  const user = await currentUser();
+  if (!user) redirect("/login");
+  const requestedTheme = asString(formData, "theme");
+  const theme = normalizeTheme(requestedTheme);
+
+  if (requestedTheme !== theme) {
+    return { message: "That theme is not available.", status: "error", theme: previousState.theme };
+  }
+
+  await ensureAccountRecords(user);
+  await db
+    .update(userSettings)
+    .set({ theme, updatedAt: new Date() })
+    .where(eq(userSettings.userId, user.id));
+  await logSecurityEvent(user.id, "settings.theme_updated", { theme });
+  revalidatePath("/", "layout");
+
+  return { message: "Saved", status: "saved", theme };
 }
 
 export async function changePasswordAction(formData: FormData) {

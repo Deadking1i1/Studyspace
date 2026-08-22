@@ -1,22 +1,23 @@
 import Link from "next/link";
-import Image from "next/image";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { userProfiles, userSettings } from "@/db/schema";
 import { currentUser } from "@/lib/auth/session";
 import { AppNavigation } from "@/components/shell/app-navigation";
-
-const allowedThemes = new Set(["rain", "cyan", "ocean", "forest", "aurora", "purple", "light", "high-contrast"]);
-
-function normalizeTheme(theme?: string | null) {
-  if (theme === "dark") return "rain";
-  return theme && allowedThemes.has(theme) ? theme : "rain";
-}
+import { normalizeTheme } from "@/lib/themes";
 
 export async function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
   const user = await currentUser();
   const [settings] = user
-    ? await db.select({ theme: userSettings.theme }).from(userSettings).where(eq(userSettings.userId, user.id)).limit(1)
+    ? await db
+        .select({
+          highContrast: userSettings.highContrast,
+          reducedMotion: userSettings.reducedMotion,
+          theme: userSettings.theme,
+        })
+        .from(userSettings)
+        .where(eq(userSettings.userId, user.id))
+        .limit(1)
     : [];
   const [profile] = user
     ? await db
@@ -29,11 +30,17 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
   const displayName = profile?.displayName || user?.username || "Student";
 
   return (
-    <div className="app-shell" data-theme={theme} suppressHydrationWarning>
+    <div
+      className="app-shell"
+      data-accessibility-contrast={settings?.highContrast ? "true" : "false"}
+      data-reduced-motion={settings?.reducedMotion ? "true" : "false"}
+      data-theme={theme}
+      suppressHydrationWarning
+    >
       <aside className="sidebar">
         <Link className="brand" href="/">
           <div className="brand-mark">
-            <Image alt="" height={48} priority src="/assets/study-space-logo.png" width={48} />
+            <span className="brand-glyph" aria-hidden="true">S</span>
           </div>
           <div>
             <strong>Study Space</strong>
@@ -57,7 +64,7 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
       <section className="app-content">
         <header className="mobile-app-header">
           <Link className="mobile-app-brand" href="/">
-            <Image alt="" height={38} priority src="/assets/study-space-logo.png" width={38} />
+            <span className="mobile-brand-glyph" aria-hidden="true">S</span>
             <strong>Study Space</strong>
           </Link>
           <Link className="mobile-profile-link" href="/profile" aria-label="Open profile">
