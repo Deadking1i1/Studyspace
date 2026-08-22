@@ -5,9 +5,6 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Study Space",
   description: "A modern all-in-one workspace for students.",
-  icons: {
-    icon: "/assets/brand/favicon-rain.png",
-  },
 };
 
 export const viewport: Viewport = {
@@ -20,6 +17,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link href="/assets/brand/favicon-rain.png" id="study-space-favicon" rel="icon" type="image/png" />
         <ExtensionAttributeCleanup />
       </head>
       <body suppressHydrationWarning>{children}</body>
