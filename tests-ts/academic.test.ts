@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { daysBetween, scoreStudyRecommendation } from "@/lib/features/academic";
+import { boundedInteger, daysBetween, scoreStudyRecommendation } from "@/lib/features/academic";
 
 describe("academic autopilot recommendation scoring", () => {
+  it("normalizes bounded integer form values without leaking NaN to PostgreSQL", () => {
+    expect(boundedInteger("75", 80, 50, 100)).toBe(75);
+    expect(boundedInteger("invalid", 80, 50, 100)).toBe(80);
+    expect(boundedInteger("60.5", 60, 15, 720)).toBe(60);
+    expect(boundedInteger("999", 60, 15, 720)).toBe(720);
+  });
   it("normalizes PostgreSQL aggregate timestamp strings", () => {
     expect(daysBetween("2026-08-10T16:30:00.000Z", new Date("2026-08-13T09:00:00.000Z"))).toBe(3);
   });

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { notifications } from "@/db/schema";
 import { verifyCsrfToken } from "@/lib/auth/csrf";
 import { currentUser } from "@/lib/auth/session";
+import { parsePositiveInteger } from "@/lib/text";
 
 function redirectWith(message: string, type: "error" | "success" = "success"): never {
   redirect(`/notifications?${type}=${encodeURIComponent(message)}`);
@@ -19,14 +20,15 @@ export async function markNotificationReadAction(formData: FormData) {
   }
   const user = await currentUser();
   if (!user) redirect("/login");
-  const notificationId = Number(formData.get("notification_id"));
+  const notificationId = parsePositiveInteger(formData.get("notification_id"));
+  if (!notificationId) redirectWith("Notification not found.", "error");
   const [notification] = await db
     .select()
     .from(notifications)
     .where(and(eq(notifications.id, notificationId), eq(notifications.userId, user.id)))
     .limit(1);
   if (!notification) redirectWith("Notification not found.", "error");
-  await db.update(notifications).set({ isRead: true }).where(eq(notifications.id, notification.id));
+  await db.update(notifications).set({ isRead: true }).where(and(eq(notifications.id, notification.id), eq(notifications.userId, user.id)));
   revalidatePath("/notifications");
   redirectWith("Notification marked as read.");
 }

@@ -1,10 +1,11 @@
 import { cookies } from "next/headers";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { userSessions, users } from "@/db/schema";
 import { addHours, createToken, hashToken } from "./tokens";
 import { headers } from "next/headers";
 import { SESSION_COOKIE } from "./constants";
+import { clientIp } from "./request-context";
 
 export { SESSION_COOKIE };
 
@@ -12,8 +13,7 @@ export async function createSession(userId: number) {
   const token = createToken();
   const expiresAt = addHours(new Date(), 24 * 7);
   const requestHeaders = await headers();
-  const forwardedFor = requestHeaders.get("x-forwarded-for");
-  const ipAddress = (forwardedFor?.split(",", 1)[0] || requestHeaders.get("x-real-ip") || "").slice(0, 64) || null;
+  const ipAddress = clientIp(requestHeaders);
   const userAgent = (requestHeaders.get("user-agent") || "").slice(0, 255) || null;
   await db.insert(userSessions).values({
     userId,
@@ -28,9 +28,33 @@ export async function createSession(userId: number) {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
+    priority: "high",
     expires: expiresAt,
     path: "/",
   });
+}
+
+export async function revokeAllUserSessions(userId: number) {
+  await db.update(userSessions).set({ revokedAt: new Date() }).where(eq(userSessions.userId, userId));
+}
+
+export async function activeSessionsForUser(userId: number) {
+  const cookieStore = await cookies();
+  const currentHash = cookieStore.get(SESSION_COOKIE)?.value ? hashToken(cookieStore.get(SESSION_COOKIE)!.value) : null;
+  const rows = await db.select({ id: userSessions.id, tokenHash: userSessions.tokenHash, ipAddress: userSessions.ipAddress, userAgent: userSessions.userAgent, createdAt: userSessions.createdAt, expiresAt: userSessions.expiresAt })
+    .from(userSessions)
+    .where(and(eq(userSessions.userId, userId), isNull(userSessions.revokedAt), gt(userSessions.expiresAt, new Date())))
+    .orderBy(desc(userSessions.createdAt));
+  return rows.map(({ tokenHash, ...session }) => ({ ...session, current: tokenHash === currentHash }));
+}
+
+export async function revokeOwnedSession(userId: number, sessionId: number) {
+  const rows = await db
+    .update(userSessions)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(userSessions.id, sessionId), eq(userSessions.userId, userId), isNull(userSessions.revokedAt)))
+    .returning();
+  return rows.length === 1;
 }
 
 export async function destroySession() {

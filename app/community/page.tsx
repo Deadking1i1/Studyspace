@@ -1,6 +1,7 @@
 import { count, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { CommunityUnavailable, isCommunityUiEnabled } from "@/components/community/community-access";
 import { db } from "@/db";
 import { groupMembers } from "@/db/schema";
 import { getCsrfToken } from "@/lib/auth/csrf";
@@ -14,8 +15,16 @@ export default async function CommunityPage({
 }: Readonly<{ searchParams?: Promise<Record<string, string | string[] | undefined>> }>) {
   const user = await currentUser();
   if (!user) redirect("/login");
+  if (!isCommunityUiEnabled()) {
+    return (
+      <AppShell>
+        <CommunityUnavailable />
+      </AppShell>
+    );
+  }
   const params = (await searchParams) ?? {};
-  const page = Math.max(Number(params.page || 1), 1);
+  const requestedPage = Number(params.page || 1);
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const error = typeof params.error === "string" ? params.error : "";
   const success = typeof params.success === "string" ? params.success : "";
   const csrfToken = await getCsrfToken();
@@ -35,8 +44,8 @@ export default async function CommunityPage({
         </div>
       </header>
 
-      {error ? <p className="notice error">{error}</p> : null}
-      {success ? <p className="notice success">{success}</p> : null}
+      {error ? <p className="notice error" role="alert">{error}</p> : null}
+      {success ? <p className="notice success" role="status">{success}</p> : null}
 
       <section className="workspace-grid">
         <article className="card">
@@ -89,9 +98,9 @@ export default async function CommunityPage({
           </div>
           {pages > 1 ? (
             <nav className="pagination" aria-label="Group pages">
-              {page > 1 ? <a href={`/community?page=${page - 1}`}>Previous</a> : null}
+              {page > 1 ? <a href={`/community?page=${page - 1}`} rel="prev">Previous</a> : null}
               <span>Page {page} of {pages}</span>
-              {page < pages ? <a href={`/community?page=${page + 1}`}>Next</a> : null}
+              {page < pages ? <a href={`/community?page=${page + 1}`} rel="next">Next</a> : null}
             </nav>
           ) : null}
         </article>
@@ -116,7 +125,7 @@ export default async function CommunityPage({
             <p className="eyebrow">{post.groupName || "General feed"}</p>
             <h3>{post.username}</h3>
             <p className="muted">{post.content}</p>
-            <span>{post.createdAt.toLocaleString()}</span>
+            <time dateTime={post.createdAt.toISOString()}>{post.createdAt.toLocaleString()}</time>
           </article>
         )) : <article className="card">No community posts yet.</article>}
       </section>

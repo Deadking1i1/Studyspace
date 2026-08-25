@@ -2,6 +2,16 @@
 
 ## Required Production Configuration
 
+The Next/TypeScript application refuses to start in production unless its public URL uses HTTPS, its auth secret is non-default, Resend email delivery is configured, and an authenticated upload-malware scanner is configured.
+
+- Set `NODE_ENV=production`, `STUDY_SPACE_APP_BASE_URL=https://...`, and a unique `AUTH_SECRET` of at least 32 characters.
+- Set `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, and a verified `EMAIL_FROM` sender.
+- Set `UPLOAD_SCANNER_URL` and `UPLOAD_SCANNER_TOKEN`. The endpoint receives the raw file body and must return JSON `{ "safe": true }` only for accepted files.
+- Set `TRUST_PROXY_HEADERS=true` only behind a trusted proxy that overwrites `X-Forwarded-For`; otherwise leave it false.
+- Use managed PostgreSQL with TLS, automated backups, point-in-time recovery, and least-privilege credentials.
+- Use `STORAGE_BACKEND=s3` with a private S3/R2-compatible bucket. Application downloads remain owner-authorized; never expose the bucket publicly.
+- Enable `PRIVATE_BETA_ENABLED` with a short `BETA_ALLOWED_EMAILS` allowlist. Keep `NEXT_PUBLIC_STUDY_SPACE_COMMUNITY_ENABLED=false` until moderation safeguards exist.
+
 - Set `FLASK_ENV=production`.
 - Set `FLASK_DEBUG=0`.
 - Set a unique `SECRET_KEY` with at least 32 characters.
@@ -48,12 +58,15 @@
 - Upload size is capped by `MAX_CONTENT_LENGTH`.
 - Embedded PDF URLs must use HTTPS and match `PDF_ALLOWED_DOMAINS`.
 - PDF iframes are sandboxed.
+- TypeScript study-material uploads are signature checked and, in production, must pass the configured malware scanner before being written.
+- Production objects are written only after scanning. Database-write failures remove the newly stored object, and each beta account has a 250 MB study-material quota.
 
 ## Headers and CSP
 
 - Flask-Talisman configures security headers.
 - CSP currently allows local scripts/styles/images and approved PDF frame sources.
 - Avoid adding inline scripts/styles unless there is a clear reason and CSP is updated deliberately.
+- The Next application sets CSP, clickjacking protection, MIME sniffing protection, a restrictive permissions policy, no-referrer behavior, and production HSTS. Inline scripts/styles remain permitted for the current Next/React and component styling model; replacing them with nonce-based CSP is a future hardening step.
 
 ## Integrations
 
@@ -69,3 +82,4 @@
 
 - SQLite is suitable for local development, but production should use PostgreSQL with managed backups.
 - Email delivery depends on SMTP environment configuration and should be tested with the chosen provider before production launch.
+- Production readiness still depends on external operations: alerting, log retention, restore drills, dependency updates, incident response, and penetration testing cannot be supplied by application code alone.

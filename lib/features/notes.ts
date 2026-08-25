@@ -6,7 +6,7 @@ import { notes } from "@/db/schema";
 import { currentUser } from "@/lib/auth/session";
 import { verifyCsrfToken } from "@/lib/auth/csrf";
 import { invalidateAcademicAutopilotCache, ownedAcademicSelection } from "@/lib/features/academic";
-import { sanitizePlain } from "@/lib/text";
+import { parsePositiveInteger, sanitizePlain } from "@/lib/text";
 
 function redirectWith(message: string, type: "error" | "success" = "success"): never {
   redirect(`/notes?${type}=${encodeURIComponent(message)}`);
@@ -57,13 +57,14 @@ export async function updateNoteStateAction(formData: FormData) {
   }
   const user = await currentUser();
   if (!user) redirect("/login");
-  const noteId = Number(formData.get("note_id"));
+  const noteId = parsePositiveInteger(formData.get("note_id"));
   const action = sanitizePlain(formData.get("action"));
+  if (!noteId) redirectWith("Note not found.", "error");
   const [note] = await db.select().from(notes).where(and(eq(notes.id, noteId), eq(notes.userId, user.id))).limit(1);
   if (!note) redirectWith("Note not found.", "error");
 
   if (action === "delete") {
-    await db.delete(notes).where(eq(notes.id, note.id));
+    await db.delete(notes).where(and(eq(notes.id, note.id), eq(notes.userId, user.id)));
     invalidateAcademicAutopilotCache(user.id);
     revalidatePath("/notes");
     revalidatePath("/autopilot");
@@ -78,7 +79,7 @@ export async function updateNoteStateAction(formData: FormData) {
   else if (action === "restore") updates.isArchived = false;
   else redirectWith("Unknown note action.", "error");
 
-  await db.update(notes).set(updates).where(eq(notes.id, note.id));
+  await db.update(notes).set(updates).where(and(eq(notes.id, note.id), eq(notes.userId, user.id)));
   invalidateAcademicAutopilotCache(user.id);
   revalidatePath("/notes");
   revalidatePath("/autopilot");
@@ -95,10 +96,11 @@ export async function editNoteAction(formData: FormData) {
   }
   const user = await currentUser();
   if (!user) redirect("/login");
-  const noteId = Number(formData.get("note_id"));
+  const noteId = parsePositiveInteger(formData.get("note_id"));
   const title = sanitizePlain(formData.get("title")).slice(0, 255);
   const content = sanitizePlain(formData.get("content"));
   if (!title || !content) redirectWith("Title and content are required.", "error");
+  if (!noteId) redirectWith("Note not found.", "error");
   const [note] = await db.select().from(notes).where(and(eq(notes.id, noteId), eq(notes.userId, user.id))).limit(1);
   if (!note) redirectWith("Note not found.", "error");
   const academic = await ownedAcademicSelection(user.id, formData.get("subject_id"), formData.get("topic_id"));
@@ -115,7 +117,7 @@ export async function editNoteAction(formData: FormData) {
       isPublic: formData.get("visibility") === "public",
       updatedAt: new Date(),
     })
-    .where(eq(notes.id, note.id));
+    .where(and(eq(notes.id, note.id), eq(notes.userId, user.id)));
   invalidateAcademicAutopilotCache(user.id);
   revalidatePath("/notes");
   revalidatePath("/autopilot");

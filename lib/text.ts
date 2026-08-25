@@ -17,7 +17,18 @@ export function summarizeText(text: string | null | undefined) {
 export function parseIsoDate(value: FormDataEntryValue | string | null | undefined) {
   const cleaned = String(value || "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) return null;
-  const parsed = new Date(`${cleaned}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) return null;
+  const [year, month, day] = cleaned.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year
+    || parsed.getUTCMonth() !== month - 1
+    || parsed.getUTCDate() !== day
+  ) return null;
   return cleaned;
+}
+
+export function parsePositiveInteger(value: FormDataEntryValue | string | null | undefined) {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) return null;
+  return parsed;
 }

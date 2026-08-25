@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { events } from "@/db/schema";
 import { verifyCsrfToken } from "@/lib/auth/csrf";
 import { currentUser } from "@/lib/auth/session";
-import { parseIsoDate, sanitizePlain } from "@/lib/text";
+import { parseIsoDate, parsePositiveInteger, sanitizePlain } from "@/lib/text";
 
 function redirectWith(message: string, type: "error" | "success" = "success"): never {
   redirect(`/calendar?${type}=${encodeURIComponent(message)}`);
@@ -39,10 +39,11 @@ export async function deleteEventAction(formData: FormData) {
   }
   const user = await currentUser();
   if (!user) redirect("/login");
-  const eventId = Number(formData.get("event_id"));
+  const eventId = parsePositiveInteger(formData.get("event_id"));
+  if (!eventId) redirectWith("Event not found.", "error");
   const [event] = await db.select().from(events).where(and(eq(events.id, eventId), eq(events.userId, user.id))).limit(1);
   if (!event) redirectWith("Event not found.", "error");
-  await db.delete(events).where(eq(events.id, event.id));
+  await db.delete(events).where(and(eq(events.id, event.id), eq(events.userId, user.id)));
   revalidatePath("/calendar");
   redirectWith("Event deleted.");
 }

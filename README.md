@@ -220,6 +220,29 @@ Required Next migration configuration:
 - `STUDY_SPACE_DATABASE_URL`: PostgreSQL connection string for Drizzle.
 - `STUDY_SPACE_APP_BASE_URL`: Next app base URL, for local development usually `http://127.0.0.1:3000`.
 - `AUTH_SECRET`: strong random secret, at least 32 characters. Production builds/runtimes must not use the development placeholder.
+- `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, and `EMAIL_FROM`: required for production verification, recovery, and email-change messages. Development may use `EMAIL_PROVIDER=console`; development links are never exposed in production.
+- `TRUST_PROXY_HEADERS`: leave `false` unless the app is behind a trusted reverse proxy that overwrites forwarded-IP headers.
+- `UPLOAD_SCANNER_URL` and `UPLOAD_SCANNER_TOKEN`: required at production runtime. The scanner receives the raw upload and must return `{ "safe": true }` before Study Space stores it.
+- `STORAGE_BACKEND=s3` plus `STORAGE_BUCKET`, region/endpoint and credentials: required in production. Local disk remains development-only; objects are private and server-authorized downloads preserve ownership checks.
+- `PRIVATE_BETA_ENABLED=true` and `BETA_ALLOWED_EMAILS`: restrict registration to the invited comma-separated email list.
+- `NEXT_PUBLIC_STUDY_SPACE_COMMUNITY_ENABLED=false`: keep community, feed and groups gated until reporting, blocking and moderation exist.
+
+Production also requires an HTTPS `STUDY_SPACE_APP_BASE_URL`. Password changes, password resets, and confirmed email changes revoke all existing sessions. Account exports are POST-only and require CSRF plus the current password.
+
+Operational runbooks live in `docs/operations/`; database backup and restore rehearsal is documented in `docs/migration/database-backup-recovery.md`. The `/api/health?probe=live` endpoint is for liveness and `/api/health` checks PostgreSQL readiness.
+
+Before deployment, run:
+
+```bash
+npm run typecheck
+npm test
+npm run build
+npm audit --audit-level=moderate
+$env:NODE_ENV="production"
+npm run security:check-production
+```
+
+Use managed PostgreSQL with TLS, automated backups and restore testing. Configure centralized logs, uptime/error alerts, secret rotation and an incident-response contact. Application checks cannot replace those operational controls.
 
 Useful migration commands:
 

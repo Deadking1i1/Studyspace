@@ -1,15 +1,18 @@
-import { neon } from "@neondatabase/serverless";
-import { drizzle as drizzleNeon } from "drizzle-orm/neon-http";
 import postgres from "postgres";
 import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
 import { env } from "@/lib/env";
 import * as schema from "./schema";
 
 const databaseUrl = env.STUDY_SPACE_DATABASE_URL;
-const isNeon = databaseUrl.includes("neon.tech");
 
-export const db = isNeon
-  ? drizzleNeon(neon(databaseUrl), { schema })
-  : drizzlePostgres(postgres(databaseUrl, { max: 1 }), { schema });
+// The application relies on interactive transactions for account deletion and
+// multi-row feature writes. Drizzle's neon-http adapter does not support them;
+// postgres-js works with local PostgreSQL and Neon pooled/direct URLs.
+export const db = drizzlePostgres(postgres(databaseUrl, {
+  max: 5,
+  idle_timeout: 20,
+  connect_timeout: 10,
+  prepare: false,
+}), { schema });
 
 export { schema };

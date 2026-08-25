@@ -10,11 +10,11 @@ import {
   deleteAccountAction,
   logoutAction,
   requestEmailChangeAction,
+  revokeSessionAction,
   resendVerificationAction,
   saveSettingsAction,
-  saveThemeAction,
 } from "@/lib/auth/actions";
-import { currentUser } from "@/lib/auth/session";
+import { activeSessionsForUser, currentUser } from "@/lib/auth/session";
 import { ensureAccountRecords } from "@/lib/account";
 import { getCsrfToken } from "@/lib/auth/csrf";
 import { uploadProfileImageAction } from "@/lib/features/profile-images";
@@ -38,6 +38,7 @@ export default async function SettingsPage({
   const error = typeof params.error === "string" ? params.error : "";
   const success = typeof params.success === "string" ? params.success : "";
   const csrfToken = await getCsrfToken();
+  const activeSessions = await activeSessionsForUser(user.id);
 
   return (
     <AppShell>
@@ -71,7 +72,6 @@ export default async function SettingsPage({
             <button className="button secondary" type="submit">Upload image</button>
           </form>
           <ThemePicker
-            action={saveThemeAction}
             csrfToken={csrfToken}
             initialTheme={normalizeTheme(settings?.theme)}
           />
@@ -206,7 +206,14 @@ export default async function SettingsPage({
           <article className="card">
             <h2>Account data</h2>
             <div className="grid">
-              <a className="button secondary" href="/api/account/export">Export account data</a>
+              <form action="/api/account/export" className="grid" method="post">
+                <input name="csrf_token" type="hidden" value={csrfToken} />
+                <label className="grid">
+                  <span>Password to export data</span>
+                  <input autoComplete="current-password" name="password" required type="password" />
+                </label>
+                <button className="button secondary" type="submit">Export account data</button>
+              </form>
               <form action={deleteAccountAction} className="grid">
                 <input name="csrf_token" type="hidden" value={csrfToken} />
                 <label className="grid">
@@ -220,6 +227,18 @@ export default async function SettingsPage({
                 <button className="button danger" type="submit">Delete account</button>
               </form>
             </div>
+          </article>
+
+          <article className="card">
+            <h2>Active sessions</h2>
+            <ul className="feature-list">
+              {activeSessions.map((session) => (
+                <li key={session.id}>
+                  <span><strong>{session.current ? "This device" : "Signed-in device"}</strong><br /><span className="muted">{session.userAgent || "Unknown browser"} · expires {session.expiresAt.toISOString()}</span></span>
+                  {!session.current ? <form action={revokeSessionAction}><input name="csrf_token" type="hidden" value={csrfToken} /><input name="session_id" type="hidden" value={session.id} /><button className="button secondary" type="submit">Sign out</button></form> : null}
+                </li>
+              ))}
+            </ul>
           </article>
 
           <article className="card">

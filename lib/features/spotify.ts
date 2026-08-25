@@ -12,6 +12,7 @@ export const SPOTIFY_AUTHORIZE_URL = "https://accounts.spotify.com/authorize";
 export const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
 export const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 export const SPOTIFY_STATE_COOKIE = "spotify_oauth_state";
+const spotifyRefreshes = new Map<number, Promise<SpotifyTokenPayload>>();
 
 // Every scope below maps to an existing Study Space control. Keep this list narrow.
 export const SPOTIFY_SCOPES = [
@@ -107,7 +108,9 @@ export function spotifyFailure(error: unknown, fallback = "Spotify could not com
 export function spotifyRedirectUriIsValid() {
   try {
     const redirectUri = new URL(env.SPOTIFY_REDIRECT_URI);
+    const appBaseUrl = new URL(env.STUDY_SPACE_APP_BASE_URL);
     if (redirectUri.pathname !== "/integrations/spotify/callback") return false;
+    if (redirectUri.origin !== appBaseUrl.origin) return false;
     if (env.NODE_ENV === "production") return redirectUri.protocol === "https:";
     return redirectUri.protocol === "http:" && redirectUri.hostname === "127.0.0.1";
   } catch {
@@ -116,7 +119,7 @@ export function spotifyRedirectUriIsValid() {
 }
 
 export function spotifyConfigured() {
-  return Boolean(env.SPOTIFY_CLIENT_ID && env.SPOTIFY_CLIENT_SECRET && spotifyRedirectUriIsValid());
+  return Boolean(env.SPOTIFY_ENABLED && env.SPOTIFY_CLIENT_ID && env.SPOTIFY_CLIENT_SECRET && spotifyRedirectUriIsValid());
 }
 
 export function spotifyConfigurationMessage() {
@@ -173,9 +176,19 @@ export function verifySpotifyOAuthState(cookieValue: string | undefined, returne
 }
 
 export async function spotifyRequest(method: string, url: string, accessToken?: string, data?: unknown) {
+  let requestUrl: URL;
+  try {
+    requestUrl = new URL(url);
+  } catch {
+    throw new SpotifyApiError(400, "Invalid Spotify API URL.");
+  }
+  const apiBase = new URL(SPOTIFY_API_BASE);
+  if (requestUrl.protocol !== "https:" || requestUrl.origin !== apiBase.origin || !requestUrl.pathname.startsWith(`${apiBase.pathname}/`)) {
+    throw new SpotifyApiError(400, "Invalid Spotify API destination.");
+  }
   let response: Response;
   try {
-    response = await fetch(url, {
+    response = await fetch(requestUrl, {
       method,
       headers: {
         Accept: "application/json",
@@ -184,6 +197,7 @@ export async function spotifyRequest(method: string, url: string, accessToken?: 
       },
       body: data ? JSON.stringify(data) : undefined,
       cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
     });
   } catch {
     throw new SpotifyApiError(503, "Network request failed.");
@@ -217,6 +231,7 @@ export async function exchangeSpotifyCode(code: string) {
     },
     body,
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   }).catch(() => null);
   if (!response) throw new SpotifyApiError(503, "Token exchange network failure.");
   const payload = await response.json().catch(() => null) as SpotifyTokenPayload | null;
@@ -241,7 +256,7 @@ async function markSpotifyConnectionState(userId: number, connectionState: Spoti
     .where(eq(integrationTokens.id, record.id));
 }
 
-async function refreshSpotifyToken(userId: number, refreshToken: string) {
+async function performSpotifyTokenRefresh(userId: number, refreshToken: string) {
   const body = new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken });
   const response = await fetch(SPOTIFY_TOKEN_URL, {
     method: "POST",
@@ -252,6 +267,7 @@ async function refreshSpotifyToken(userId: number, refreshToken: string) {
     },
     body,
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   }).catch(() => null);
   if (!response) throw new SpotifyApiError(503, "Token refresh network failure.");
   const payload = await response.json().catch(() => null) as SpotifyTokenPayload | null;
@@ -260,15 +276,32 @@ async function refreshSpotifyToken(userId: number, refreshToken: string) {
   return payload;
 }
 
+async function refreshSpotifyToken(userId: number, refreshToken: string) {
+  const existingRefresh = spotifyRefreshes.get(userId);
+  if (existingRefresh) return existingRefresh;
+  const refresh = performSpotifyTokenRefresh(userId, refreshToken);
+  spotifyRefreshes.set(userId, refresh);
+  try {
+    return await refresh;
+  } finally {
+    if (spotifyRefreshes.get(userId) === refresh) spotifyRefreshes.delete(userId);
+  }
+}
+
+function spotifyTokenExpiry(expiresIn: unknown) {
+  const seconds = Number(expiresIn);
+  const lifetime = Number.isFinite(seconds) && seconds > 0 ? seconds : 3600;
+  return new Date(Date.now() + Math.max(1, lifetime - Math.min(60, lifetime / 10)) * 1000);
+}
+
 export async function storeSpotifyToken(userId: number, tokenPayload: SpotifyTokenPayload, existingRefreshToken?: string) {
   const [existing] = await db
     .select()
     .from(integrationTokens)
     .where(and(eq(integrationTokens.userId, userId), eq(integrationTokens.provider, "spotify")))
     .limit(1);
-  const expiresIn = Number(tokenPayload.expires_in || 3600);
   const refreshToken = tokenPayload.refresh_token || existingRefreshToken || "";
-  const expiresAt = new Date(Date.now() + Math.max(60, expiresIn - 60) * 1000);
+  const expiresAt = spotifyTokenExpiry(tokenPayload.expires_in);
   const metadata = asMetadata(existing?.metadata);
   const values = {
     userId,
@@ -314,7 +347,7 @@ export async function spotifyTokenRecord(userId: number) {
         return {
           accessToken: refreshed.access_token,
           refreshToken: refreshed.refresh_token || refreshToken,
-          expiresAt: new Date(Date.now() + Math.max(60, Number(refreshed.expires_in || 3600) - 60) * 1000),
+          expiresAt: spotifyTokenExpiry(refreshed.expires_in),
           scope: refreshed.scope || record.scope || "",
           metadata: asMetadata(record.metadata),
         };

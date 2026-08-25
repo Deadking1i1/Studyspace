@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
+import { clientIp } from "./request-context";
 
 export async function requestIdentifier(extra = "") {
   const requestHeaders = await headers();
-  const forwardedFor = requestHeaders.get("x-forwarded-for");
-  const ip = (forwardedFor?.split(",", 1)[0] || requestHeaders.get("x-real-ip") || "anonymous").trim();
+  const ip = clientIp(requestHeaders) || "direct";
   return `${ip}:${extra}`;
 }

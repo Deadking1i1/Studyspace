@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { authRateLimits } from "@/db/schema";
 
@@ -34,40 +34,33 @@ export function parseRateLimit(value: string, fallbackLimit: number, fallbackWin
   const amount = Number((match[2] || "1").trim());
   const unit = match[3].toLowerCase();
   const seconds = unit === "hour" ? 3600 : unit === "minute" ? 60 : 1;
-  return { limit: count, windowSeconds: amount * seconds };
+  const windowSeconds = amount * seconds;
+  if (!Number.isSafeInteger(count) || count <= 0 || !Number.isSafeInteger(windowSeconds) || windowSeconds <= 0) {
+    return { limit: fallbackLimit, windowSeconds: fallbackWindowSeconds };
+  }
+  return { limit: count, windowSeconds };
 }
 
 export async function enforceRateLimit({ action, identifier, limit, windowSeconds }: RateLimitOptions) {
+  if (!Number.isSafeInteger(limit) || limit <= 0 || !Number.isSafeInteger(windowSeconds) || windowSeconds <= 0) {
+    throw new Error("Invalid rate-limit configuration.");
+  }
   const now = new Date();
   const windowStart = windowStartFor(now, windowSeconds);
   const identifierHash = hashIdentifier(identifier);
-  const [row] = await db
-    .select()
-    .from(authRateLimits)
-    .where(
-      and(
-        eq(authRateLimits.action, action),
-        eq(authRateLimits.identifierHash, identifierHash),
-        eq(authRateLimits.windowStart, windowStart),
-      ),
-    )
-    .limit(1);
+  const [row] = await db.insert(authRateLimits)
+    .values({ action, identifierHash, windowStart, count: 1, updatedAt: now })
+    .onConflictDoUpdate({
+      target: [authRateLimits.action, authRateLimits.identifierHash, authRateLimits.windowStart],
+      set: { count: sql`${authRateLimits.count} + 1`, updatedAt: now },
+    })
+    .returning();
 
-  if (!row) {
-    await db.insert(authRateLimits).values({ action, identifierHash, windowStart, count: 1, updatedAt: now });
-    return;
-  }
-
-  if (row.count >= limit) {
+  if (row.count > limit) {
     const retryAfterSeconds = Math.max(
       1,
       Math.ceil((windowStart.getTime() + windowSeconds * 1000 - now.getTime()) / 1000),
     );
     throw new RateLimitError(retryAfterSeconds);
   }
-
-  await db
-    .update(authRateLimits)
-    .set({ count: row.count + 1, updatedAt: now })
-    .where(eq(authRateLimits.id, row.id));
 }

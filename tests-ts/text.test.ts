@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseIsoDate, sanitizePlain, summarizeText } from "@/lib/text";
+import { parseIsoDate, parsePositiveInteger, sanitizePlain, summarizeText } from "@/lib/text";
 
 describe("text helpers", () => {
   it("sanitizes plain input for note and task forms", () => {
@@ -9,7 +9,17 @@ describe("text helpers", () => {
   it("keeps valid ISO dates and rejects invalid task dates", () => {
     expect(parseIsoDate("2026-07-23")).toBe("2026-07-23");
     expect(parseIsoDate("23/07/2026")).toBeNull();
+    expect(parseIsoDate("2026-02-29")).toBeNull();
+    expect(parseIsoDate("2026-04-31")).toBeNull();
+    expect(parseIsoDate("2024-02-29")).toBe("2024-02-29");
     expect(parseIsoDate("")).toBeNull();
+  });
+
+  it("accepts only positive safe record identifiers", () => {
+    expect(parsePositiveInteger("42")).toBe(42);
+    expect(parsePositiveInteger("0")).toBeNull();
+    expect(parsePositiveInteger("1.5")).toBeNull();
+    expect(parsePositiveInteger("not-an-id")).toBeNull();
   });
 
   it("summarizes long notes deterministically", () => {

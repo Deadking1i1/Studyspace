@@ -1,9 +1,5 @@
-import { NextResponse } from "next/server";
+import { healthResponse } from "@/lib/observability/health-response";
 
-export function GET() {
-  return NextResponse.json({
-    ok: true,
-    service: "study-space",
-    stack: "next-typescript",
-  });
+export function GET(request: Request) {
+  return healthResponse(request);
 }

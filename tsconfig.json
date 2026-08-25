@@ -34,7 +34,9 @@
     "**/*.ts",
     "**/*.tsx",
     ".next-study-space/types/**/*.ts",
-    ".next-study-space/dev/types/**/*.ts"
+    ".next-study-space/dev/types/**/*.ts",
+    ".next-study-space-dev/types/**/*.ts",
+    ".next-study-space-dev/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

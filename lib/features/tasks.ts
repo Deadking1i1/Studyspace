@@ -6,7 +6,7 @@ import { tasks } from "@/db/schema";
 import { verifyCsrfToken } from "@/lib/auth/csrf";
 import { currentUser } from "@/lib/auth/session";
 import { invalidateAcademicAutopilotCache, ownedAcademicSelection } from "@/lib/features/academic";
-import { parseIsoDate, sanitizePlain } from "@/lib/text";
+import { parseIsoDate, parsePositiveInteger, sanitizePlain } from "@/lib/text";
 
 const allowedPriorities = new Set(["low", "medium", "high"]);
 const allowedActions = new Set(["complete", "reopen", "archive", "restore", "delete"]);
@@ -60,14 +60,15 @@ export async function updateTaskStateAction(formData: FormData) {
   }
   const user = await currentUser();
   if (!user) redirect("/login");
-  const taskId = Number(formData.get("task_id"));
+  const taskId = parsePositiveInteger(formData.get("task_id"));
   const action = sanitizePlain(formData.get("action"));
   if (!allowedActions.has(action)) redirectWith("Unknown task action.", "error");
+  if (!taskId) redirectWith("Task not found.", "error");
   const [task] = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, user.id))).limit(1);
   if (!task) redirectWith("Task not found.", "error");
 
   if (action === "delete") {
-    await db.delete(tasks).where(eq(tasks.id, task.id));
+    await db.delete(tasks).where(and(eq(tasks.id, task.id), eq(tasks.userId, user.id)));
     invalidateAcademicAutopilotCache(user.id);
     revalidatePath("/tasks");
     revalidatePath("/autopilot");
@@ -84,7 +85,7 @@ export async function updateTaskStateAction(formData: FormData) {
   if (action === "archive") updates.archived = true;
   if (action === "restore") updates.archived = false;
 
-  await db.update(tasks).set(updates).where(eq(tasks.id, task.id));
+  await db.update(tasks).set(updates).where(and(eq(tasks.id, task.id), eq(tasks.userId, user.id)));
   invalidateAcademicAutopilotCache(user.id);
   revalidatePath("/tasks");
   revalidatePath("/autopilot");

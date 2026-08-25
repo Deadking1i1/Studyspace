@@ -25,11 +25,13 @@ export async function createGroupAction(formData: FormData) {
   if (!name || !description) redirectWith("Please provide a group name and description.", "error");
 
   const now = new Date();
-  const [group] = await db
-    .insert(groups)
-    .values({ name, description, createdBy: user.id, createdAt: now, memberCount: 1 })
-    .returning();
-  await db.insert(groupMembers).values({ groupId: group.id, userId: user.id, joinedAt: now });
+  await db.transaction(async (tx) => {
+    const [group] = await tx
+      .insert(groups)
+      .values({ name, description, createdBy: user.id, createdAt: now, memberCount: 1 })
+      .returning();
+    await tx.insert(groupMembers).values({ groupId: group.id, userId: user.id, joinedAt: now });
+  });
   revalidatePath("/community");
   revalidatePath("/groups");
   redirectWith("Study group created successfully.");

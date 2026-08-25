@@ -11,6 +11,6 @@ export function applyThemeBrand(theme: ThemeId) {
     favicon.rel = "icon";
     document.head.append(favicon);
   }
-  favicon.href = faviconPath;
+  favicon.href = `${faviconPath}?theme=${encodeURIComponent(theme)}`;
   favicon.type = "image/png";
 }

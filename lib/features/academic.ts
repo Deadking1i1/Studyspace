@@ -15,7 +15,7 @@ import {
 import { verifyCsrfToken } from "@/lib/auth/csrf";
 import { currentUser } from "@/lib/auth/session";
 import { cachedByUser, invalidateUserCache } from "@/lib/cache";
-import { parseIsoDate, sanitizePlain } from "@/lib/text";
+import { parseIsoDate, parsePositiveInteger, sanitizePlain } from "@/lib/text";
 
 const allowedSubjectColors = new Set(["cyan", "blue", "green", "purple", "orange", "pink"]);
 const allowedDeadlineTypes = new Set(["assignment", "exam", "quiz", "reading", "project", "revision"]);
@@ -53,6 +53,12 @@ function invalidateAutopilot(userId: number) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
+}
+
+export function boundedInteger(value: FormDataEntryValue | string | null | undefined, fallback: number, min: number, max: number) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) return fallback;
+  return clamp(parsed, min, max);
 }
 
 export function daysBetween(startInput: Date | string, endInput: Date | string) {
@@ -139,7 +145,7 @@ export async function createSubjectAction(formData: FormData) {
   const code = sanitizePlain(formData.get("code")).slice(0, 64) || null;
   const requestedColor = sanitizePlain(formData.get("color"));
   const color = allowedSubjectColors.has(requestedColor) ? requestedColor : "cyan";
-  const targetMastery = clamp(Number(formData.get("target_mastery") || 80), 50, 100);
+  const targetMastery = boundedInteger(formData.get("target_mastery"), 80, 50, 100);
   if (!name) redirectWith("Subject name is required.", "error");
 
   await db.insert(academicSubjects).values({
@@ -166,16 +172,17 @@ export async function createTopicAction(formData: FormData) {
   }
   const user = await currentUser();
   if (!user) redirect("/login");
-  const subjectId = Number(formData.get("subject_id"));
+  const subjectId = parsePositiveInteger(formData.get("subject_id"));
   const name = sanitizePlain(formData.get("name")).slice(0, 180);
   const description = sanitizePlain(formData.get("description")) || null;
-  const masteryScore = clamp(Number(formData.get("mastery_score") || 0), 0, 100);
+  const masteryScore = boundedInteger(formData.get("mastery_score"), 0, 0, 100);
+  if (!subjectId || !name) redirectWith("Choose a subject and topic name.", "error");
   const [subject] = await db
     .select({ id: academicSubjects.id })
     .from(academicSubjects)
     .where(and(eq(academicSubjects.id, subjectId), eq(academicSubjects.userId, user.id)))
     .limit(1);
-  if (!subject || !name) redirectWith("Choose a subject and topic name.", "error");
+  if (!subject) redirectWith("Choose a subject and topic name.", "error");
 
   await db.insert(academicTopics).values({
     userId: user.id,
@@ -201,20 +208,19 @@ export async function createAcademicDeadlineAction(formData: FormData) {
   const user = await currentUser();
   if (!user) redirect("/login");
   const title = sanitizePlain(formData.get("title")).slice(0, 255);
-  const subjectId = Number(formData.get("subject_id") || 0) || null;
-  const topicId = Number(formData.get("topic_id") || 0) || null;
   const dueDate = parseIsoDate(formData.get("due_date"));
   const requestedType = sanitizePlain(formData.get("type"));
   const type = allowedDeadlineTypes.has(requestedType) ? requestedType : "assignment";
-  const estimatedMinutes = clamp(Number(formData.get("estimated_minutes") || 60), 15, 720);
-  const weight = clamp(Number(formData.get("weight") || 1), 1, 5);
+  const estimatedMinutes = boundedInteger(formData.get("estimated_minutes"), 60, 15, 720);
+  const weight = boundedInteger(formData.get("weight"), 1, 1, 5);
   const notesText = sanitizePlain(formData.get("notes")) || null;
   if (!title || !dueDate) redirectWith("Deadline title and due date are required.", "error");
+  const academic = await ownedAcademicSelection(user.id, formData.get("subject_id"), formData.get("topic_id"));
 
   await db.insert(academicDeadlines).values({
     userId: user.id,
-    subjectId,
-    topicId,
+    subjectId: academic.subjectId,
+    topicId: academic.topicId,
     title,
     type,
     dueDate,
@@ -240,16 +246,17 @@ export async function updateAcademicDeadlineStatusAction(formData: FormData) {
   }
   const user = await currentUser();
   if (!user) redirect("/login");
-  const deadlineId = Number(formData.get("deadline_id"));
+  const deadlineId = parsePositiveInteger(formData.get("deadline_id"));
   const status = sanitizePlain(formData.get("status"));
   if (!allowedDeadlineStatuses.has(status)) redirectWith("Unknown deadline status.", "error");
+  if (!deadlineId) redirectWith("Academic deadline not found.", "error");
   const [deadline] = await db
     .select({ id: academicDeadlines.id })
     .from(academicDeadlines)
     .where(and(eq(academicDeadlines.id, deadlineId), eq(academicDeadlines.userId, user.id)))
     .limit(1);
   if (!deadline) redirectWith("Academic deadline not found.", "error");
-  await db.update(academicDeadlines).set({ status, updatedAt: new Date() }).where(eq(academicDeadlines.id, deadline.id));
+  await db.update(academicDeadlines).set({ status, updatedAt: new Date() }).where(and(eq(academicDeadlines.id, deadline.id), eq(academicDeadlines.userId, user.id)));
   invalidateAutopilot(user.id);
   revalidatePath("/autopilot");
   revalidatePath("/");

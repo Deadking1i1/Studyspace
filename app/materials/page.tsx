@@ -6,7 +6,7 @@ import { studyMaterials } from "@/db/schema";
 import { getCsrfToken } from "@/lib/auth/csrf";
 import { currentUser } from "@/lib/auth/session";
 import { getAcademicOptions } from "@/lib/features/academic";
-import { deleteStudyMaterialAction, materialOrder, materialSearchPredicate, maxMaterialSizeBytes, uploadStudyMaterialAction } from "@/lib/features/materials";
+import { deleteStudyMaterialAction, materialOrder, materialSearchPredicate, maxMaterialSizeBytes } from "@/lib/features/materials";
 import { sanitizePlain } from "@/lib/text";
 
 const perPage = 12;
@@ -22,14 +22,17 @@ export default async function MaterialsPage({
   const user = await currentUser();
   if (!user) redirect("/login");
   const params = (await searchParams) ?? {};
-  const query = sanitizePlain(typeof params.q === "string" ? params.q : "");
-  const page = Math.max(Number(params.page || 1), 1);
+  const query = sanitizePlain(typeof params.q === "string" ? params.q : "").slice(0, 128);
+  const parsedPage = Number(params.page || 1);
+  const requestedPage = Number.isSafeInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const error = typeof params.error === "string" ? params.error : "";
   const success = typeof params.success === "string" ? params.success : "";
   const csrfToken = await getCsrfToken();
   const academicOptions = await getAcademicOptions(user.id);
   const predicate = materialSearchPredicate(user.id, query);
   const [{ total }] = await db.select({ total: count() }).from(studyMaterials).where(predicate);
+  const pages = Math.max(Math.ceil(total / perPage), 1);
+  const page = Math.min(requestedPage, pages);
   const rows = await db
     .select()
     .from(studyMaterials)
@@ -37,7 +40,6 @@ export default async function MaterialsPage({
     .orderBy(...materialOrder())
     .limit(perPage)
     .offset((page - 1) * perPage);
-  const pages = Math.max(Math.ceil(total / perPage), 1);
 
   return (
     <AppShell>
@@ -55,7 +57,7 @@ export default async function MaterialsPage({
       <section className="workspace-grid">
         <article className="card">
           <h2>Upload material</h2>
-          <form action={uploadStudyMaterialAction} className="grid">
+          <form action="/materials/upload" className="grid" encType="multipart/form-data" method="post">
             <input name="csrf_token" type="hidden" value={csrfToken} />
             <label className="grid">
               <span>Title</span>

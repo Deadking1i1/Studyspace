@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, or } from "drizzle-orm";
+import { and, eq, gt, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
@@ -11,10 +11,12 @@ import { verifyCsrfToken } from "@/lib/auth/csrf";
 import { enforceRateLimit, parseRateLimit, RateLimitError } from "@/lib/auth/rate-limit";
 import { requestIdentifier } from "@/lib/auth/request";
 import { addHours, createToken, hashToken } from "@/lib/auth/tokens";
-import { createSession, currentUser, destroySession } from "@/lib/auth/session";
+import { createSession, currentUser, destroySession, revokeAllUserSessions, revokeOwnedSession } from "@/lib/auth/session";
+import { developmentLink, isValidAccountEmail, sendEmailChangeEmail, sendPasswordResetEmail, sendVerificationEmail } from "@/lib/auth/email";
 import { hashPassword, passwordStrengthErrors, verifyPassword } from "@/lib/auth/password";
 import { logSecurityEvent } from "@/lib/auth/security-events";
 import { normalizeTheme, type ThemeActionState } from "@/lib/themes";
+import { canRegisterForBeta } from "@/lib/beta-access";
 
 function asString(formData: FormData, key: string) {
   return String(formData.get(key) || "").trim();
@@ -24,8 +26,9 @@ function redirectWith(path: string, type: "error" | "success", message: string):
   redirect(`${path}?${type}=${encodeURIComponent(message)}`);
 }
 
-function devTokenMessage(path: string, token: string) {
-  return `${path}/${encodeURIComponent(token)}`;
+function developmentMessage(prefix: string, path: string, token: string) {
+  const link = developmentLink(path, token);
+  return link ? `${prefix} Development link: ${link}` : prefix;
 }
 
 async function requireCsrf(formData: FormData, redirectPath: string) {
@@ -55,8 +58,10 @@ export async function registerAction(formData: FormData) {
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirm_password") || "");
   await requireRateLimit("auth.register", await requestIdentifier(email), env.AUTH_REGISTER_RATE_LIMIT, "/register");
+  if (!canRegisterForBeta(email)) redirectWith("/register", "error", "Study Space is currently invitation-only. Use an invited email address.");
 
   if (!username || !email || !password) redirectWith("/register", "error", "Please fill in all registration fields.");
+  if (!isValidAccountEmail(email)) redirectWith("/register", "error", "Enter a valid email address.");
   if (password !== confirmPassword) redirectWith("/register", "error", "Password confirmation does not match.");
   const strengthErrors = passwordStrengthErrors(password);
   if (strengthErrors.length) redirectWith("/register", "error", strengthErrors[0]);
@@ -85,8 +90,13 @@ export async function registerAction(formData: FormData) {
   await logSecurityEvent(created.id, "account.registered", {});
   await destroySession();
   await createSession(created.id);
-
-  redirectWith("/", "success", `Registration successful. Development verification link: ${devTokenMessage("/verify-email", verificationToken)}`);
+  try {
+    await sendVerificationEmail(created.email, verificationToken);
+  } catch {
+    await logSecurityEvent(created.id, "email.delivery_failed", { purpose: "verification" });
+    if (env.NODE_ENV === "production") redirectWith("/", "error", "Account created, but the verification email could not be sent. Try again from Settings.");
+  }
+  redirectWith("/", "success", developmentMessage("Registration successful. Check your email to verify your account.", "/verify-email", verificationToken));
 }
 
 export async function loginAction(formData: FormData) {
@@ -95,6 +105,7 @@ export async function loginAction(formData: FormData) {
   const password = String(formData.get("password") || "");
   await requireRateLimit("auth.login", await requestIdentifier(email), env.AUTH_LOGIN_RATE_LIMIT, "/login");
   if (!email || !password) redirectWith("/login", "error", "Please enter both email and password.");
+  if (!isValidAccountEmail(email)) redirectWith("/login", "error", "Invalid email or password.");
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
 
   if (!user || !verifyPassword(password, user.passwordHash)) {
@@ -109,8 +120,8 @@ export async function loginAction(formData: FormData) {
   redirect("/");
 }
 
-export async function logoutAction(formData?: FormData) {
-  if (formData) await requireCsrf(formData, "/settings");
+export async function logoutAction(formData: FormData) {
+  await requireCsrf(formData, "/settings");
   const user = await currentUser();
   if (user) await logSecurityEvent(user.id, "auth.logout", {});
   await destroySession();
@@ -121,8 +132,10 @@ export async function requestPasswordResetAction(formData: FormData) {
   await requireCsrf(formData, "/forgot-password");
   const email = normalizeEmail(formData.get("email"));
   await requireRateLimit("password.reset", await requestIdentifier(email), env.AUTH_PASSWORD_RESET_RATE_LIMIT, "/forgot-password");
-  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  let message = "If that email exists, a reset link has been prepared.";
+  const [user] = isValidAccountEmail(email)
+    ? await db.select().from(users).where(eq(users.email, email)).limit(1)
+    : [];
+  let message = "If that email exists, a password-reset email has been sent.";
 
   if (user) {
     const token = createToken();
@@ -131,7 +144,12 @@ export async function requestPasswordResetAction(formData: FormData) {
       .set({ passwordResetTokenHash: hashToken(token), passwordResetSentAt: new Date() })
       .where(eq(users.id, user.id));
     await logSecurityEvent(user.id, "password.reset_requested", {});
-    message = `Development reset link: ${devTokenMessage("/reset-password", token)}`;
+    try {
+      await sendPasswordResetEmail(user.email, token);
+    } catch {
+      await logSecurityEvent(user.id, "email.delivery_failed", { purpose: "password_reset" });
+    }
+    message = developmentMessage(message, "/reset-password", token);
   } else {
     await logSecurityEvent(null, "password.reset_requested_unknown", { email_provided: Boolean(email) });
   }
@@ -165,14 +183,24 @@ export async function resetPasswordAction(token: string, formData: FormData) {
     redirectWith(`/reset-password/${encodeURIComponent(token)}`, "error", strengthErrors[0]);
   }
 
-  await db.update(users).set({ passwordHash: hashPassword(password), passwordResetTokenHash: null, passwordResetSentAt: null }).where(eq(users.id, user.id));
+  const [updated] = await db
+    .update(users)
+    .set({ passwordHash: hashPassword(password), passwordResetTokenHash: null, passwordResetSentAt: null })
+    .where(and(
+      eq(users.id, user.id),
+      eq(users.passwordResetTokenHash, hashToken(token)),
+      gt(users.passwordResetSentAt, addHours(new Date(), -2)),
+    ))
+    .returning();
+  if (!updated) redirectWith("/forgot-password", "error", "Password reset link is invalid or has already been used.");
+  await revokeAllUserSessions(user.id);
   await logSecurityEvent(user.id, "password.reset_completed", {});
   await destroySession();
   redirectWith("/login", "success", "Password updated. Please sign in.");
 }
 
-export async function verifyEmailAction(token: string, formData?: FormData) {
-  if (formData) await requireCsrf(formData, `/verify-email/${encodeURIComponent(token)}`);
+export async function verifyEmailAction(token: string, formData: FormData) {
+  await requireCsrf(formData, `/verify-email/${encodeURIComponent(token)}`);
   const [user] = await db
     .select()
     .from(users)
@@ -184,16 +212,22 @@ export async function verifyEmailAction(token: string, formData?: FormData) {
     redirectWith("/login", "error", "Email verification link has expired. Request a new one from settings.");
   }
 
-  await db
+  const [updated] = await db
     .update(users)
     .set({ emailVerified: true, emailVerificationTokenHash: null, emailVerificationSentAt: null })
-    .where(eq(users.id, user.id));
+    .where(and(
+      eq(users.id, user.id),
+      eq(users.emailVerificationTokenHash, hashToken(token)),
+      gt(users.emailVerificationSentAt, addHours(new Date(), -48)),
+    ))
+    .returning();
+  if (!updated) redirectWith("/login", "error", "Email verification link is invalid or has already been used.");
   await logSecurityEvent(user.id, "email.verified", {});
   redirectWith("/", "success", "Email verified successfully.");
 }
 
-export async function resendVerificationAction(formData?: FormData) {
-  if (formData) await requireCsrf(formData, "/settings");
+export async function resendVerificationAction(formData: FormData) {
+  await requireCsrf(formData, "/settings");
   const user = await currentUser();
   if (!user) redirect("/login");
   if (user.emailVerified) redirectWith("/settings", "success", "Email is already verified.");
@@ -203,7 +237,13 @@ export async function resendVerificationAction(formData?: FormData) {
     .set({ emailVerified: false, emailVerificationTokenHash: hashToken(token), emailVerificationSentAt: new Date() })
     .where(eq(users.id, user.id));
   await logSecurityEvent(user.id, "email.verification_requested", {});
-  redirectWith("/settings", "success", `Verification link prepared. Development link: ${devTokenMessage("/verify-email", token)}`);
+  try {
+    await sendVerificationEmail(user.email, token);
+  } catch {
+    await logSecurityEvent(user.id, "email.delivery_failed", { purpose: "verification" });
+    if (env.NODE_ENV === "production") redirectWith("/settings", "error", "Verification email could not be sent. Please try again later.");
+  }
+  redirectWith("/settings", "success", developmentMessage("Verification email sent.", "/verify-email", token));
 }
 
 export async function saveSettingsAction(formData: FormData) {
@@ -277,7 +317,6 @@ export async function saveThemeAction(
     .where(eq(userSettings.userId, user.id));
   await logSecurityEvent(user.id, "settings.theme_updated", { theme });
   revalidatePath("/", "layout");
-
   return { message: "Saved", status: "saved", theme };
 }
 
@@ -302,8 +341,10 @@ export async function changePasswordAction(formData: FormData) {
     redirectWith("/settings", "error", strengthErrors[0]);
   }
   await db.update(users).set({ passwordHash: hashPassword(password) }).where(eq(users.id, user.id));
+  await revokeAllUserSessions(user.id);
   await logSecurityEvent(user.id, "password.changed", {});
-  redirectWith("/settings", "success", "Password changed successfully.");
+  await createSession(user.id);
+  redirectWith("/settings", "success", "Password changed. Other sessions were signed out.");
 }
 
 export async function requestEmailChangeAction(formData: FormData) {
@@ -313,6 +354,7 @@ export async function requestEmailChangeAction(formData: FormData) {
   const pendingEmail = normalizeEmail(formData.get("new_email") || formData.get("pending_email"));
   const password = String(formData.get("password") || "");
   if (!pendingEmail) redirectWith("/settings", "error", "New email is required.");
+  if (!isValidAccountEmail(pendingEmail)) redirectWith("/settings", "error", "Enter a valid email address.");
   if (!verifyPassword(password, user.passwordHash)) {
     await logSecurityEvent(user.id, "email.change_failed", { reason: "password" });
     redirectWith("/settings", "error", "Password confirmation failed.");
@@ -329,11 +371,17 @@ export async function requestEmailChangeAction(formData: FormData) {
     .set({ pendingEmail, pendingEmailTokenHash: hashToken(token), pendingEmailSentAt: new Date() })
     .where(eq(users.id, user.id));
   await logSecurityEvent(user.id, "email.change_requested", {});
-  redirectWith("/settings", "success", `Email change confirmation prepared. Development link: ${devTokenMessage("/settings/confirm-email-change", token)}`);
+  try {
+    await sendEmailChangeEmail(pendingEmail, token);
+  } catch {
+    await logSecurityEvent(user.id, "email.delivery_failed", { purpose: "email_change" });
+    if (env.NODE_ENV === "production") redirectWith("/settings", "error", "Confirmation email could not be sent. Please try again later.");
+  }
+  redirectWith("/settings", "success", developmentMessage("Confirmation email sent to the new address.", "/settings/confirm-email-change", token));
 }
 
-export async function confirmEmailChangeAction(token: string, formData?: FormData) {
-  if (formData) await requireCsrf(formData, `/settings/confirm-email-change/${encodeURIComponent(token)}`);
+export async function confirmEmailChangeAction(token: string, formData: FormData) {
+  await requireCsrf(formData, `/settings/confirm-email-change/${encodeURIComponent(token)}`);
   const [user] = await db
     .select()
     .from(users)
@@ -355,20 +403,37 @@ export async function confirmEmailChangeAction(token: string, formData?: FormDat
     redirectWith("/settings", "error", "That email is already in use.");
   }
   const oldEmail = user.email;
-  await db
-    .update(users)
-    .set({
-      email: newEmail,
-      emailVerified: true,
-      pendingEmail: null,
-      pendingEmailTokenHash: null,
-      pendingEmailSentAt: null,
-      emailVerificationTokenHash: null,
-      emailVerificationSentAt: null,
-    })
-    .where(eq(users.id, user.id));
+  let updated: { id: number } | undefined;
+  try {
+    [updated] = await db
+      .update(users)
+      .set({
+        email: newEmail,
+        emailVerified: true,
+        pendingEmail: null,
+        pendingEmailTokenHash: null,
+        pendingEmailSentAt: null,
+        emailVerificationTokenHash: null,
+        emailVerificationSentAt: null,
+      })
+      .where(and(
+        eq(users.id, user.id),
+        eq(users.pendingEmailTokenHash, hashToken(token)),
+        gt(users.pendingEmailSentAt, addHours(new Date(), -24)),
+      ))
+      .returning();
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") {
+      await logSecurityEvent(user.id, "email.change_failed", { reason: "duplicate_on_confirm" });
+      redirectWith("/settings", "error", "That email is already in use.");
+    }
+    throw error;
+  }
+  if (!updated) redirectWith("/settings", "error", "That email-change link is invalid or has already been used.");
   await logSecurityEvent(user.id, "email.changed", { old_email: oldEmail });
-  redirectWith("/settings", "success", "Email changed and verified successfully.");
+  await revokeAllUserSessions(user.id);
+  await destroySession();
+  redirectWith("/login", "success", "Email changed successfully. Please sign in again.");
 }
 
 export async function deleteAccountAction(formData: FormData) {
@@ -387,4 +452,16 @@ export async function deleteAccountAction(formData: FormData) {
   await destroySession();
   await deleteUserAccount(user.id);
   redirectWith("/register", "success", "Your account and Study Space data have been deleted.");
+}
+
+export async function revokeSessionAction(formData: FormData) {
+  await requireCsrf(formData, "/settings");
+  const user = await currentUser();
+  if (!user) redirect("/login");
+  const sessionId = Number(formData.get("session_id"));
+  if (!Number.isSafeInteger(sessionId) || sessionId <= 0) redirectWith("/settings", "error", "Invalid session.");
+  const revoked = await revokeOwnedSession(user.id, sessionId);
+  if (!revoked) redirectWith("/settings", "error", "That session is no longer active.");
+  await logSecurityEvent(user.id, "session.revoked", { session_id: sessionId });
+  redirectWith("/settings", "success", "Session signed out.");
 }

@@ -46,10 +46,15 @@ export function ResizableSidebar({ children }: Readonly<{ children: React.ReactN
   }
 
   function resizeWithKeyboard(event: React.KeyboardEvent<HTMLButtonElement>) {
+    if (event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      applyWidth(event.key === "Home" ? MIN_WIDTH : MAX_WIDTH, true);
+      return;
+    }
     const direction = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
     if (!direction) return;
     event.preventDefault();
-    applyWidth(width + direction * (event.shiftKey ? 24 : 12), true);
+    applyWidth(widthRef.current + direction * (event.shiftKey ? 24 : 12), true);
   }
 
   return (
@@ -62,6 +67,7 @@ export function ResizableSidebar({ children }: Readonly<{ children: React.ReactN
         aria-valuemax={MAX_WIDTH}
         aria-valuemin={MIN_WIDTH}
         aria-valuenow={width}
+        aria-valuetext={`${width} pixels wide`}
         className="sidebar-resize-handle"
         onKeyDown={resizeWithKeyboard}
         onPointerDown={beginResize}

@@ -20,6 +20,13 @@ describe("theme registry", () => {
     expect(images.every((image) => image.endsWith(".webp"))).toBe(true);
   });
 
+  it("provides matching logos and favicons for every environment", () => {
+    for (const theme of themeDefinitions) {
+      expect(theme.logo).toBe(`/assets/brand/${theme.id}.png`);
+      expect(theme.favicon).toBe(`/assets/brand/favicon-${theme.id}.png`);
+    }
+  });
+
   it("normalizes legacy and unsupported stored values safely", () => {
     expect(normalizeTheme("forest")).toBe("forest");
     expect(normalizeTheme("dark")).toBe("rain");

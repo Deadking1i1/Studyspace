@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { CSRF_COOKIE, SESSION_COOKIE } from "@/lib/auth/constants";
+import { assertProductionEnvironment } from "@/lib/env";
 
 const csrfPagePrefixes = [
   "/login",
@@ -43,7 +44,7 @@ const protectedPagePrefixes = [
   "/hub",
   "/notes_hub",
 ];
-const protectedApiPrefixes = ["/api/account"];
+const protectedApiPrefixes = ["/api/account", "/api/settings"];
 
 function csrfToken() {
   const bytes = new Uint8Array(32);
@@ -52,6 +53,7 @@ function csrfToken() {
 }
 
 export function proxy(request: NextRequest) {
+  assertProductionEnvironment();
   const pathname = request.nextUrl.pathname;
   const needsDashboardAuth = pathname === "/";
   const needsPageAuth = protectedPagePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -67,7 +69,13 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const needsCsrf = request.method === "GET" && csrfPagePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  const needsCsrf =
+    request.method === "GET" &&
+    (needsDashboardAuth ||
+      needsPageAuth ||
+      csrfPagePrefixes.some(
+        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+      ));
   if (needsCsrf && !request.cookies.get(CSRF_COOKIE)?.value) {
     const response = NextResponse.redirect(request.url);
     response.cookies.set(CSRF_COOKIE, csrfToken(), {
@@ -111,5 +119,6 @@ export const config = {
     "/notes_hub/:path*",
     "/api/integrations/spotify/:path*",
     "/api/account/:path*",
+    "/api/settings/:path*",
   ],
 };

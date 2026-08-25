@@ -56,4 +56,12 @@ describe("Spotify request safety", () => {
     expect(failure.error).toBe("Spotify could not complete that request.");
     expect(failure.error).not.toContain("secret");
   });
+
+  it("never sends a bearer token to a non-Spotify API destination", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(spotifyRequest("GET", "https://example.com/collect", "access-token")).rejects.toMatchObject({ status: 400 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

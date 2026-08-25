@@ -1,7 +1,11 @@
 import { and, asc, eq, inArray, ne, or } from "drizzle-orm";
 import { unlink } from "node:fs/promises";
+import path from "node:path";
 import { db } from "@/db";
 import {
+  academicDeadlines,
+  academicSubjects,
+  academicTopics,
   achievements,
   comments,
   events,
@@ -13,6 +17,7 @@ import {
   notes,
   notifications,
   posts,
+  securityEvents,
   studyMaterials,
   studySessions,
   tasks,
@@ -20,15 +25,15 @@ import {
   userSettings,
   users,
 } from "@/db/schema";
+import { deletePrivateObject } from "@/lib/storage";
 
 export function normalizeEmail(value: FormDataEntryValue | string | null | undefined) {
   return String(value || "").trim().toLowerCase();
 }
 
 export async function ensureAccountRecords(user: { id: number; username: string; bio?: string | null; profilePic?: string | null; course?: string | null }) {
-  const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, user.id)).limit(1);
-  if (!profile) {
-    await db.insert(userProfiles).values({
+  await Promise.all([
+    db.insert(userProfiles).values({
       userId: user.id,
       displayName: user.username,
       bio: user.bio ?? null,
@@ -37,12 +42,10 @@ export async function ensureAccountRecords(user: { id: number; username: string;
       profileVisibility: "private",
       createdAt: new Date(),
       updatedAt: new Date(),
-    });
-  }
-  const [settings] = await db.select().from(userSettings).where(eq(userSettings.userId, user.id)).limit(1);
-  if (!settings) {
-    await db.insert(userSettings).values({ userId: user.id, createdAt: new Date(), updatedAt: new Date() });
-  }
+    }).onConflictDoNothing({ target: userProfiles.userId }),
+    db.insert(userSettings).values({ userId: user.id, createdAt: new Date(), updatedAt: new Date() })
+      .onConflictDoNothing({ target: userSettings.userId }),
+  ]);
 }
 
 export async function exportUserData(userId: number) {
@@ -66,6 +69,12 @@ export async function exportUserData(userId: number) {
     },
     profile,
     settings,
+    security_history: await db.select().from(securityEvents).where(eq(securityEvents.userId, userId)),
+    academic: {
+      subjects: await db.select().from(academicSubjects).where(eq(academicSubjects.userId, userId)),
+      topics: await db.select().from(academicTopics).where(eq(academicTopics.userId, userId)),
+      deadlines: await db.select().from(academicDeadlines).where(eq(academicDeadlines.userId, userId)),
+    },
     notes: await db.select().from(notes).where(eq(notes.userId, userId)),
     study_materials: await db.select().from(studyMaterials).where(eq(studyMaterials.userId, userId)),
     tasks: await db.select().from(tasks).where(eq(tasks.userId, userId)),
@@ -91,6 +100,7 @@ export async function exportUserData(userId: number) {
 
 export async function deleteUserAccount(userId: number) {
   const materialFiles = await db.select({ storagePath: studyMaterials.storagePath }).from(studyMaterials).where(eq(studyMaterials.userId, userId));
+  const [profileImage] = await db.select({ profilePic: userProfiles.profilePic }).from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1);
   await db.transaction(async (tx) => {
     const userNotes = await tx.select({ id: notes.id }).from(notes).where(eq(notes.userId, userId));
     const noteIds = userNotes.map((note) => note.id);
@@ -144,7 +154,18 @@ export async function deleteUserAccount(userId: number) {
     await tx.delete(tasks).where(eq(tasks.userId, userId));
     await tx.delete(userProfiles).where(eq(userProfiles.userId, userId));
     await tx.delete(userSettings).where(eq(userSettings.userId, userId));
+    await tx.update(securityEvents).set({ userId: null }).where(eq(securityEvents.userId, userId));
     await tx.delete(users).where(eq(users.id, userId));
   });
-  await Promise.all(materialFiles.map((material) => unlink(material.storagePath).catch(() => undefined)));
+  const storageKeys = [
+    ...materialFiles.map((material) => material.storagePath),
+    ...(profileImage?.profilePic?.startsWith("profile-images/") ? [profileImage.profilePic] : []),
+  ];
+  await Promise.all(storageKeys.map(async (storageKey) => {
+    if (path.isAbsolute(storageKey)) {
+      await unlink(storageKey).catch(() => undefined);
+      return;
+    }
+    await deletePrivateObject(storageKey).catch(() => undefined);
+  }));
 }
