@@ -1,8 +1,18 @@
 # Study Space
 
-A Flask-based study hub with notes, flashcards, groups, and more.
+A student productivity workspace built with Next.js, TypeScript, React, PostgreSQL and Drizzle. The Flask application remains in the repository as the migration source of truth until final parity and cutover.
 
-## Run locally
+## Windows quick start
+
+After completing the local environment and PostgreSQL setup, double-click:
+
+```text
+Open Study Space.bat
+```
+
+The launcher starts the current TypeScript application when necessary, waits for the database-backed health check, and opens `http://127.0.0.1:3000` in the default browser. If Study Space is already healthy, it opens immediately.
+
+## Legacy Flask application
 
 1. Install dependencies:
 
